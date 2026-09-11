@@ -121,7 +121,7 @@
 	// Read showRecords from URL parameter (default: true)
 	$: showRecordsParam = $page.url.searchParams.get('showRecords');
 	$: showRecords = showRecordsParam !== 'false';  // Default true unless explicitly set to false
-	$: hasRecords = data.records && data.records.length > 0;
+	$: hasRecords = (data.records && data.records.length > 0) || !!data.personalRecords;
 
 	// Read vFill from URL parameter (default: true) - controls elastic spacer row
 	// vFill=true: 1fr elastic row pushes leaders to bottom
@@ -200,7 +200,7 @@
 
 			<!-- Records Section (Below Grid, Not Part of Grid) -->
 			{#if showRecords && hasRecords}
-				<RecordsSection records={data.records} headers={headers} recordStatus={data.recordStatus} />
+				<RecordsSection records={data.records} personalRecords={data.personalRecords} headers={headers} recordStatus={data.recordStatus} />
 			{/if}
 		{/if}
 	</main>

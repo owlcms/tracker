@@ -150,7 +150,10 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 	const mode = fopUpdate?.mode || 'WAIT';
 	const inBreakState = isBreakMode(mode) || fopUpdate?.break === 'true' || fopUpdate?.break === true || fopUpdate?.fopState === 'BREAK';
 	const hasLiveCurrentAthlete = !inBreakState && hasCurrentAthlete(fopUpdate, sessionStatus);
-	const records = hasLiveCurrentAthlete ? extractRecordsFromUpdate(fopUpdate) : [];
+	const recordDisplay = hasLiveCurrentAthlete
+		? extractRecordsFromUpdate(fopUpdate)
+		: { records: [], personalRecords: null };
+	const { records, personalRecords } = recordDisplay;
 	const hasLiveRecordAttempt = fopUpdate?.recordKind !== 'attempt' || hasLiveCurrentAthlete;
 	const recordStatus = fopUpdate?.recordKind && fopUpdate.recordKind !== 'none' && hasLiveRecordAttempt
 		? {
@@ -227,6 +230,7 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 			sessionStatusMessage,
 			breakTitle,
 			records,
+			personalRecords,
 			recordStatus,
 			attemptBarClass,
 			learningMode
@@ -250,6 +254,7 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 			decision,
 			displayMode,
 			records,
+			personalRecords,
 			sessionStatus,
 			sessionStatusMessage,
 			sortedAthletes: [],
@@ -316,6 +321,7 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 		resultRows,
 		leaderRows,
 		records,
+		personalRecords,
 		recordStatus,
 		status,
 		message,
@@ -337,6 +343,7 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 		// rankedAthletes: result.rankedAthletes,             // Remove duplicate
 		leaders: result.leaders,
 		records: result.records,
+		personalRecords: result.personalRecords,
 		recordStatus: result.recordStatus,
 		stats: result.stats,
 		displaySettings: result.displaySettings,

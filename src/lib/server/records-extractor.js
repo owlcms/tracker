@@ -6,7 +6,7 @@
  */
 export function extractRecordsFromUpdate(fopUpdate) {
 	if (!fopUpdate?.records) {
-		return [];
+		return { records: [], personalRecords: null };
 	}
 
 	try {
@@ -17,7 +17,7 @@ export function extractRecordsFromUpdate(fopUpdate) {
 		// Two possible formats observed from OWLCMS:
 		// 1) Index-based flat table (old): recordTable entries with catindex/fedindex/index/value/highlight
 		// 2) Block-based table (newer): recordTable is array of blocks { cat, records: [ {SNATCH, CLEANJERK, TOTAL, ...}, ... ] }
-		if (!recordsData) return [];
+		if (!recordsData) return { records: [], personalRecords: null };
 
 		const isBlockFormat = Array.isArray(recordsData.recordTable) && recordsData.recordTable.length > 0 && !!recordsData.recordTable[0]?.records;
 
@@ -30,6 +30,7 @@ export function extractRecordsFromUpdate(fopUpdate) {
 			// Normalize block format -> federation -> categories map
 			const federations = Array.isArray(recordsData.recordNames) ? recordsData.recordNames : [];
 			const recordsByFederation = {}; // { fed: { category: { displayName, S, CJ, T } }}
+			let personalRecords = null;
 
 			for (const fed of federations) {
 				recordsByFederation[fed] = {};
@@ -40,6 +41,17 @@ export function extractRecordsFromUpdate(fopUpdate) {
 				if (!category) continue;
 
 				const blockRecords = Array.isArray(block.records) ? block.records : [];
+				if (block.recordClass === 'recordBoxPersonal') {
+					const personal = blockRecords[0] || {};
+					personalRecords = {
+						title: category,
+						S: { value: isEmpty(personal.SNATCH) ? '-' : personal.SNATCH, highlight: !!personal.snatchHighlight },
+						CJ: { value: isEmpty(personal.CLEANJERK) ? '-' : personal.CLEANJERK, highlight: !!personal.cjHighlight },
+						T: { value: isEmpty(personal.TOTAL) ? '-' : personal.TOTAL, highlight: !!personal.totalHighlight }
+					};
+					continue;
+				}
+
 				for (let fedIndex = 0; fedIndex < federations.length; fedIndex++) {
 					const fedName = federations[fedIndex];
 					const rec = blockRecords[fedIndex] || {};
@@ -60,14 +72,16 @@ export function extractRecordsFromUpdate(fopUpdate) {
 			}
 
 			// Convert to expected array format
-			return Object.entries(recordsByFederation)
+			const records = Object.entries(recordsByFederation)
 				.filter(([, data]) => Object.keys(data).length > 0)
 				.map(([fedName, data]) => ({ federation: fedName, records: data }));
+
+			return { records, personalRecords };
 		}
 
 		// Fallback: index-based flat table format
 		if (!recordsData?.recordTable || !recordsData?.recordNames) {
-			return [];
+			return { records: [], personalRecords: null };
 		}
 
 		const categorySet = new Set();
@@ -95,7 +109,7 @@ export function extractRecordsFromUpdate(fopUpdate) {
 		}
 
 		const federations = [...new Set(records.map(r => r.federation))];
-		return federations.map(fed => {
+		const normalizedRecords = federations.map(fed => {
 			const fedRecords = records.filter(r => r.federation === fed);
 			const categories = [...new Set(fedRecords.map(r => r.category))];
 
@@ -115,8 +129,10 @@ export function extractRecordsFromUpdate(fopUpdate) {
 				}))
 			};
 		});
+
+		return { records: normalizedRecords, personalRecords: null };
 	} catch (error) {
 		console.error('[RecordsExtractor] Failed to parse records:', error);
-		return [];
+		return { records: [], personalRecords: null };
 	}
 }

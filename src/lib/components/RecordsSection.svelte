@@ -1,5 +1,6 @@
 <script>
 	export let records = [];
+	export let personalRecords = null;
 	export const translations = {};
 	export let headers = {};
 	export let recordStatus = null;
@@ -33,13 +34,15 @@
 
 	$: categories = getAllRecordCategories(records);
 	$: hasRecords = records && records.length > 0;
+	$: hasPersonalRecords = !!personalRecords;
 	$: hasRecordStatus = !!(recordStatus?.kind && recordStatus?.message);
 </script>
 
-{#if hasRecords}
+{#if hasRecords || hasPersonalRecords}
 	<div class="records-section">
 		<div class="records-layout">
-			<div class="records-table-grid" style="--num-categories: {categories.length}">
+			{#if hasRecords}
+				<div class="records-table-grid" style="--num-categories: {categories.length}">
 				<!-- Row 1: Category headers with title in top-left, spanning 2 rows for spacers and main headers -->
 				<div class="records-title-cell span-two">{headers?.records || '!!Records'}</div>
 				{#each categories as category}
@@ -72,7 +75,20 @@
 						</div>
 					{/each}
 				{/each}
-			</div>
+				</div>
+			{/if}
+
+			{#if hasPersonalRecords}
+				<div class="personal-records-grid">
+					<div class="records-category-header personal-records-title">{personalRecords.title}</div>
+					<div class="records-subheader">S</div>
+					<div class="records-subheader">CJ</div>
+					<div class="records-subheader">T</div>
+					<div class="records-cell" class:highlighted={personalRecords.S.highlight}>{personalRecords.S.value}</div>
+					<div class="records-cell" class:highlighted={personalRecords.CJ.highlight}>{personalRecords.CJ.value}</div>
+					<div class="records-cell" class:highlighted={personalRecords.T.highlight}>{personalRecords.T.value}</div>
+				</div>
+			{/if}
 
 			{#if hasRecordStatus}
 				<div class="record-status-panel" class:attempt={recordStatus.kind === 'attempt'} class:new={recordStatus.kind === 'new'}>
@@ -98,7 +114,8 @@
 		min-width: max-content;
 	}
 
-	.records-table-grid {
+	.records-table-grid,
+	.personal-records-grid {
 		--col-spacer: 0.65rem;
 		--col-lift: 3.5rem;
 		--data-row-height: 2.0rem;
@@ -107,12 +124,23 @@
 		--header-primary-height: calc(1.2rem + (var(--header-primary-vpad) * 2));
 		--header-secondary-height: calc(1.1rem + (var(--header-secondary-vpad) * 2));
 		display: grid;
-		grid-template-columns: max-content repeat(var(--num-categories), var(--col-spacer) var(--col-lift) var(--col-lift) var(--col-lift));
 		grid-template-rows: var(--header-primary-height) var(--header-secondary-height);
 		grid-auto-rows: var(--data-row-height);
 		width: max-content;
 		overflow: hidden;
 		flex: 0 0 auto;
+	}
+
+	.records-table-grid {
+		grid-template-columns: max-content repeat(var(--num-categories), var(--col-spacer) var(--col-lift) var(--col-lift) var(--col-lift));
+	}
+
+	.personal-records-grid {
+		grid-template-columns: repeat(3, var(--col-lift));
+	}
+
+	.personal-records-title {
+		grid-column: 1 / span 3;
 	}
 
 	.record-status-panel {
@@ -262,7 +290,8 @@
 			font-size: 1.5rem;
 		}
 
-		.records-table-grid {
+		.records-table-grid,
+		.personal-records-grid {
 			--col-lift: 3.3rem;
 			--col-spacer: 0.5rem;
 			--data-row-height: 1.9rem;
@@ -286,7 +315,8 @@
 			padding: 0.6rem 1rem;
 		}
 
-		.records-table-grid {
+		.records-table-grid,
+		.personal-records-grid {
 			--col-lift: 3.1rem;
 			--col-spacer: 0.4rem;
 			--data-row-height: 1.8rem;
@@ -322,7 +352,8 @@
 			padding: 0.8em 0 0 0;
 		}
 
-		.records-table-grid {
+		.records-table-grid,
+		.personal-records-grid {
 			--col-lift: 2.0rem;
 			--col-spacer: 0.2rem;
 			--data-row-height: 1.3rem;
@@ -371,7 +402,8 @@
 			max-width: 100%;
 		}
 
-		.records-table-grid {
+		.records-table-grid,
+		.personal-records-grid {
 			--col-lift: 2.2rem;
 			--col-spacer: 0.2rem;
 			--data-row-height: 1.35rem;
