@@ -1,6 +1,6 @@
 {
   "name": "owlcms-tracker",
-  "version": "2.22.1",
+  "version": "2.22.2",
   "private": true,
   "scripts": {
     "version:generate": "node scripts/generate-version.js",
@@ -45,7 +45,7 @@
   },
   "type": "module",
   "dependencies": {
-    "@owlcms/tracker-core": "github:owlcms/tracker-core#1.17.1",
+    "@owlcms/tracker-core": "github:owlcms/tracker-core#1.17.2",
     "adm-zip": "^0.5.10",
     "gsap": "^3.13.0",
     "http-proxy-middleware": "^3.0.5",
