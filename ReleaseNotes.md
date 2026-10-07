@@ -5,6 +5,11 @@
 
 ## 2.22
 
+- 2.22.3: Results book: session protocols show medals for the registration category only, not the athlete's other participations (requires tracker-core 1.17.3).
+- 2.22.3: Results book: sessions are ordered by start time, then platform. ISO session times were previously ignored, which sorted sessions alphabetically.
+- 2.22.3: Results and start books: records broken during the meet are identified by the competition dates, as in OWLCMS, so they still appear after the competition is renamed.
+- 2.22.3: Medal count, referee assignments, and jury replays: session dates and times sent as ISO strings are now displayed and sorted correctly.
+- 2.22.3: Open-ended categories are consistently displayed as `+110`, whether OWLCMS sends `>110` or `110+`.
 - 2.22.0: Additiona documents plugin to compute the number of medals needed before a meet.
 
 ## 2.21
