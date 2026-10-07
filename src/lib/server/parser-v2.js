@@ -345,11 +345,17 @@ function extractV2FOPs(platforms) {
  * @param {Array} dateArray - V2 date [year, month, day]
  * @returns {string} ISO date string
  */
-function formatV2Date(dateArray) {
-  if (!dateArray || !Array.isArray(dateArray) || dateArray.length < 3) {
+function formatV2Date(dateValue) {
+  if (typeof dateValue === 'string') {
+    const match = dateValue.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (match) {
+      return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+    }
+  }
+  if (!Array.isArray(dateValue) || dateValue.length < 3) {
     return new Date().toISOString().split('T')[0];
   }
   
-  const [year, month, day] = dateArray;
+  const [year, month, day] = dateValue;
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }

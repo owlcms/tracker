@@ -10,6 +10,8 @@
 
 import { competitionHub } from '$lib/server/competition-hub.js';
 import { buildCacheKey, registerCache } from '$lib/server/cache-utils.js';
+import { compareDateTimes, formatDateISO, formatTime } from '$lib/date-time.js';
+import { formatCategoryDisplay } from '@owlcms/tracker-core';
 
 const medalCountCache = new Map();
 registerCache(medalCountCache);
@@ -36,37 +38,6 @@ function formatProductionTimestamp() {
 	].join('-');
 	const time = String(now.getHours()).padStart(2, '0') + 'h' + String(now.getMinutes()).padStart(2, '0');
 	return `${date} ${time}`;
-}
-
-function formatDateISO(timeArray) {
-	if (!Array.isArray(timeArray) || timeArray.length < 3) return '';
-	const [year, month, day] = timeArray;
-	return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-}
-
-function formatTime(timeArray) {
-	if (!Array.isArray(timeArray) || timeArray.length < 5) return '';
-	const [, , , hour, minute] = timeArray;
-	return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-}
-
-function compareDateTimeArrays(a, b) {
-	const aHasValue = Array.isArray(a) && a.length > 0;
-	const bHasValue = Array.isArray(b) && b.length > 0;
-
-	if (aHasValue && bHasValue) {
-		const maxLength = Math.max(a.length, b.length);
-		for (let index = 0; index < maxLength; index += 1) {
-			const aPart = a[index] ?? 0;
-			const bPart = b[index] ?? 0;
-			if (aPart !== bPart) return aPart - bPart;
-		}
-		return 0;
-	}
-
-	if (aHasValue) return -1;
-	if (bHasValue) return 1;
-	return 0;
 }
 
 /**
@@ -125,7 +96,7 @@ function resolveCategory(catCode, lookup) {
 
 function categoryDisplayName(catCode, category) {
 	const name = category?.categoryName || category?.name;
-	if (name) return String(name).replace(/>/g, '+');
+	if (name) return formatCategoryDisplay(name);
 	return String(catCode || '').replace(/_/g, ' ');
 }
 
@@ -142,7 +113,7 @@ export function getScoreboardData(fopName = '*', options = {}) {
 
 	const translationsChecksum = competitionHub.lastTranslationsChecksum || 'none';
 	const cacheKey =
-		buildCacheKey({ includeFop: false, opts: options }) + `-txcs:${translationsChecksum.substring(0, 8)}`;
+		buildCacheKey({ includeFop: false, opts: options }) + `-v2-txcs:${translationsChecksum.substring(0, 8)}`;
 
 	if (medalCountCache.has(cacheKey)) {
 		return { ...medalCountCache.get(cacheKey), productionTimestamp: formatProductionTimestamp() };
@@ -175,7 +146,7 @@ export function getScoreboardData(fopName = '*', options = {}) {
 	// is well defined.
 	const dbSessions = databaseState.sessions || [];
 	const sortedSessions = [...dbSessions].sort((a, b) => {
-		const timeCompare = compareDateTimeArrays(a.competitionTime, b.competitionTime);
+		const timeCompare = compareDateTimes(a.competitionTime, b.competitionTime);
 		if (timeCompare !== 0) return timeCompare;
 		return (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' });
 	});

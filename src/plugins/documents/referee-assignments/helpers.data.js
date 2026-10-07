@@ -7,6 +7,7 @@
 
 import { competitionHub } from '$lib/server/competition-hub.js';
 import { buildCacheKey, registerCache } from '$lib/server/cache-utils.js';
+import { compareDateTimes, formatDateISO, formatTime } from '$lib/date-time.js';
 
 // Cache for referee-assignments
 const refereeAssignmentsCache = new Map();
@@ -92,7 +93,7 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 
 	// Sort sessions by competition time first, then by name for stable ordering.
 	const sortedSessions = [...sessions].sort((a, b) => {
-		const timeCompare = compareDateTimeArrays(a.competitionTime, b.competitionTime);
+		const timeCompare = compareDateTimes(a.competitionTime, b.competitionTime);
 		if (timeCompare !== 0) return timeCompare;
 		return (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' });
 	});
@@ -260,45 +261,6 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 	}
 
 	return { ...result, productionTimestamp: formatProductionTimestamp() };
-}
-
-/**
- * Format time array [year, month, day, hour, minute] to readable string
- */
-function formatTime(timeArray) {
-	if (!timeArray || timeArray.length < 5) return '';
-	const [, , , hour, minute] = timeArray;
-	return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-}
-
-function compareDateTimeArrays(a, b) {
-	const aHasValue = Array.isArray(a) && a.length > 0;
-	const bHasValue = Array.isArray(b) && b.length > 0;
-
-	if (aHasValue && bHasValue) {
-		const maxLength = Math.max(a.length, b.length);
-		for (let index = 0; index < maxLength; index += 1) {
-			const aPart = a[index] ?? 0;
-			const bPart = b[index] ?? 0;
-			if (aPart !== bPart) {
-				return aPart - bPart;
-			}
-		}
-		return 0;
-	}
-
-	if (aHasValue) return -1;
-	if (bHasValue) return 1;
-	return 0;
-}
-
-/**
- * Format competitionTime array [year, month, day, hour, minute] to ISO date string (yyyy-mm-dd)
- */
-function formatDateISO(timeArray) {
-	if (!timeArray || timeArray.length < 3) return '';
-	const [year, month, day] = timeArray;
-	return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 /**
