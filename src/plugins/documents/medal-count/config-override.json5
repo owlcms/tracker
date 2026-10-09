@@ -6,22 +6,6 @@
     {
       "key": "language",
       "default": "fr_CA"
-    },
-    {
-      "key": "medalsOverride",
-      "default": false
-    },
-    {
-      "key": "medalsSnatch",
-      "default": false
-    },
-    {
-      "key": "medalsCleanJerk",
-      "default": false
-    },
-    {
-      "key": "medalsTotal",
-      "default": true
     }
   ]
 }

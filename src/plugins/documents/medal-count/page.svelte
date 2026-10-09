@@ -24,7 +24,7 @@
 				<p class="header-info">{data.header.locationLine}</p>
 			{/if}
 			{#if data.medalLifts?.length}
-				<p class="header-info">{labels.medals}: {data.medalLifts.join(' / ')}</p>
+				<p class="header-info">{labels.medals}: {data.medalLifts.join('; ')}</p>
 			{/if}
 		</div>
 

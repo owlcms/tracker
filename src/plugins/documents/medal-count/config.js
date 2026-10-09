@@ -34,45 +34,6 @@ export default {
 			group: 'general',
 			groupLabel: 'General',
 			description: 'Choose document text language'
-		},
-		{
-			key: 'medalsOverride',
-			label: 'Override OWLCMS Medal Settings',
-			type: 'boolean',
-			default: false,
-			group: 'medals',
-			groupLabel: 'Medals',
-			description: 'When off, medals follow the OWLCMS "Medals for snatch, clean&jerk, total" setting. When on, the checkboxes below decide which lifts are awarded medals.'
-		},
-		{
-			key: 'medalsSnatch',
-			label: 'Snatch Medals',
-			type: 'boolean',
-			default: false,
-			group: 'medals',
-			disabledBy: 'medalsOverride',
-			effectiveWhenDisabled: { competitionSetting: 'snatchCJTotalMedals' },
-			description: 'Award medals for snatch (only when overriding OWLCMS).'
-		},
-		{
-			key: 'medalsCleanJerk',
-			label: 'Clean & Jerk Medals',
-			type: 'boolean',
-			default: false,
-			group: 'medals',
-			disabledBy: 'medalsOverride',
-			effectiveWhenDisabled: { competitionSetting: 'snatchCJTotalMedals' },
-			description: 'Award medals for clean & jerk (only when overriding OWLCMS).'
-		},
-		{
-			key: 'medalsTotal',
-			label: 'Total Medals',
-			type: 'boolean',
-			default: true,
-			group: 'medals',
-			disabledBy: 'medalsOverride',
-			effectiveWhenDisabled: true,
-			description: 'Award medals for total (only when overriding OWLCMS).'
 		}
 	],
 

@@ -12,18 +12,13 @@ import { competitionHub } from '$lib/server/competition-hub.js';
 import { buildCacheKey, registerCache } from '$lib/server/cache-utils.js';
 import { compareDateTimes, formatDateISO, formatTime } from '$lib/date-time.js';
 import { formatCategoryDisplay } from '@owlcms/tracker-core';
+import { buildMedalLiftsResolver } from '$lib/medal-policy.js';
 
 const medalCountCache = new Map();
 registerCache(medalCountCache);
 
 export function clearCache() {
 	medalCountCache.clear();
-}
-
-function optionEnabled(optionValue, defaultValue = true) {
-	if (optionValue === undefined || optionValue === null) return defaultValue;
-	if (typeof optionValue === 'string') return optionValue.toLowerCase() !== 'false';
-	return optionValue !== false;
 }
 
 /**
@@ -130,17 +125,13 @@ export function getScoreboardData(fopName = '*', options = {}) {
 	}
 
 	const competition = databaseState.competition;
-	const owlcmsSnatchCJTotalMedals = competition.snatchCJTotalMedals || false;
-	const medalsOverride = optionEnabled(options.medalsOverride, false);
-	const medalsSnatch = medalsOverride ? optionEnabled(options.medalsSnatch, false) : owlcmsSnatchCJTotalMedals;
-	const medalsCleanJerk = medalsOverride ? optionEnabled(options.medalsCleanJerk, false) : owlcmsSnatchCJTotalMedals;
-	const medalsTotal = medalsOverride ? optionEnabled(options.medalsTotal, true) : true;
-
-	const medalLifts = [];
-	if (medalsSnatch) medalLifts.push(labels.snatch);
-	if (medalsCleanJerk) medalLifts.push(labels.cleanJerk);
-	if (medalsTotal) medalLifts.push(labels.total);
-	const liftCount = medalLifts.length;
+	// Lifts awarded medals follow the medal policy of each category's championship.
+	const medalLiftsFor = buildMedalLiftsResolver(databaseState);
+	const liftLabels = (lifts) => [
+		lifts.snatch ? labels.snatch : null,
+		lifts.cleanJerk ? labels.cleanJerk : null,
+		lifts.total ? labels.total : null
+	].filter(Boolean);
 
 	// Order the sessions of the competition, so that "last session of a category"
 	// is well defined.
@@ -187,7 +178,11 @@ export function getScoreboardData(fopName = '*', options = {}) {
 
 			let entry = categories.get(String(catCode));
 			if (!entry) {
+				const championshipName = resolved.ageGroup.championshipName || resolved.ageGroup.code || '';
+				const lifts = liftLabels(medalLiftsFor(championshipName));
 				entry = {
+					championshipName,
+					lifts,
 					code: String(catCode),
 					name: categoryDisplayName(catCode, resolved.category),
 					ageGroup: resolved.ageGroup.championshipName || resolved.ageGroup.code || '',
@@ -223,9 +218,9 @@ export function getScoreboardData(fopName = '*', options = {}) {
 			ageGroup: entry.ageGroup,
 			gender: entry.gender,
 			athleteCount: entry.athleteCount,
-			gold: (awarded >= 1 ? 1 : 0) * liftCount,
-			silver: (awarded >= 2 ? 1 : 0) * liftCount,
-			bronze: (awarded >= 3 ? 1 : 0) * liftCount,
+			gold: (awarded >= 1 ? 1 : 0) * entry.lifts.length,
+			silver: (awarded >= 2 ? 1 : 0) * entry.lifts.length,
+			bronze: (awarded >= 3 ? 1 : 0) * entry.lifts.length,
 			spansSessions: sessionNames.length > 1,
 			sessionNames: sessionNames.sort((a, b) => (sessionOrder.get(a) ?? 0) - (sessionOrder.get(b) ?? 0))
 		};
@@ -289,6 +284,18 @@ export function getScoreboardData(fopName = '*', options = {}) {
 	);
 	grandTotal.medals = grandTotal.gold + grandTotal.silver + grandTotal.bronze;
 
+	// One header line when all championships award the same lifts, otherwise one entry per championship.
+	const liftsByChampionship = new Map();
+	categories.forEach((entry) => {
+		if (!liftsByChampionship.has(entry.championshipName)) {
+			liftsByChampionship.set(entry.championshipName, entry.lifts.join(' / '));
+		}
+	});
+	const distinctLifts = new Set(liftsByChampionship.values());
+	const medalLifts = distinctLifts.size <= 1
+		? Array.from(distinctLifts)
+		: Array.from(liftsByChampionship, ([name, lifts]) => (name ? `${name}: ${lifts}` : lifts));
+
 	const competitionName = competition.competitionName || '';
 	const result = {
 		status: sessions.length > 0 ? 'ready' : 'no_sessions',
@@ -301,7 +308,6 @@ export function getScoreboardData(fopName = '*', options = {}) {
 		sessions,
 		grandTotal,
 		medalLifts,
-		liftCount,
 		unassignedAthletes,
 		hasMultiplePlatforms: platformNames.size > 1,
 		labels
