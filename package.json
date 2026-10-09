@@ -1,6 +1,6 @@
 {
   "name": "owlcms-tracker",
-  "version": "2.22.3",
+  "version": "2.22.4",
   "private": true,
   "scripts": {
     "version:generate": "node scripts/generate-version.js",
