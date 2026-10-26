@@ -192,11 +192,7 @@ try {
 console.log('\n💾 Committing changes...');
 try {
   execSync('git add package.json package-lock.json ReleaseNotes.md release.sh', { stdio: 'inherit' });
-  execSync(
-    `git commit -m "chore: update tracker-core to ${trackerCoreVersion} for release ${version}" ` +
-    `-m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"`,
-    { stdio: 'inherit' }
-  );
+  execSync(`git commit -m "chore: update tracker-core to ${trackerCoreVersion} for release ${version}"`, { stdio: 'inherit' });
   console.log('✓ Committed');
 } catch (error) {
   console.log('⚠️  No changes to commit (already up to date)');

@@ -21,6 +21,8 @@ You are helping build a **SvelteKit application** that displays the state of an 
 
 This instructions file provides **AI context only**. For detailed technical information, always refer to the comprehensive documentation in the `/docs` folder.
 
+Never add a Copilot `Co-authored-by` trailer to a commit message.
+
 ## 🛠️ Development Environment
 
 **Shell:** bash — Git Bash on Windows, bash/zsh on macOS and Linux.
@@ -290,4 +292,3 @@ This architecture is **designed for AI pair programming**. A novice programmer u
 1. Create new scoreboard types by describing requirements in plain English
 2. Modify existing scoreboards without understanding SSE/WebSocket internals
 3. Add custom scoring rules (team rankings, bonus points, etc.) via helpers
-
