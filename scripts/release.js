@@ -113,6 +113,7 @@ const includeSubmodules = args.includes('--submodules');
 const positional = args.filter((arg) => arg !== '--submodules');
 const version = positional[0];
 let trackerCoreVersion = positional[1]; // Optional
+const trackerCoreBranch = process.env.TRACKER_CORE_BRANCH || getCurrentBranch();
 
 if (!version) {
   console.error('❌ Error: Version number required');
@@ -149,6 +150,7 @@ if (remoteTagExists(version) || remoteReleaseExists(version)) {
 try {
   trackerCoreVersion = await runVersionChecks({
     requestedVersion: trackerCoreVersion,
+    requestedBranch: trackerCoreBranch,
     promptOnAuto: true,
     allowRelease: true,
     updatePackageJson: true,
@@ -190,7 +192,11 @@ try {
 console.log('\n💾 Committing changes...');
 try {
   execSync('git add package.json package-lock.json ReleaseNotes.md release.sh', { stdio: 'inherit' });
-  execSync(`git commit -m "chore: update tracker-core to ${trackerCoreVersion} for release ${version}"`, { stdio: 'inherit' });
+  execSync(
+    `git commit -m "chore: update tracker-core to ${trackerCoreVersion} for release ${version}" ` +
+    `-m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"`,
+    { stdio: 'inherit' }
+  );
   console.log('✓ Committed');
 } catch (error) {
   console.log('⚠️  No changes to commit (already up to date)');
@@ -198,7 +204,11 @@ try {
 
 console.log('\n🚀 Pushing changes...');
 try {
-  execSync('git push', { stdio: 'inherit' });
+  const branch = getCurrentBranch();
+  if (!branch) {
+    throw new Error('Cannot push a release from detached HEAD');
+  }
+  execSync(`git push --set-upstream origin ${branch}`, { stdio: 'inherit' });
   console.log('✓ Pushed');
 } catch (error) {
   console.error('❌ Failed to push:', error.message);
@@ -234,7 +244,10 @@ try {
   // Trigger the workflow on the pushed branch ref
   const submodulesArg = includeSubmodules ? ' -f includeSubmodules=true' : ' -f includeSubmodules=false';
   const trackerCoreArg = trackerCoreVersion ? ` -f trackerCoreVersion=${trackerCoreVersion}` : '';
-  execSync(`gh workflow run release.yaml --ref ${branch} -f revision=${version}${trackerCoreArg}${submodulesArg}`, { stdio: 'inherit' });
+  execSync(
+    `gh workflow run release.yaml --ref ${branch} -f sourceRef=${branch} -f trackerCoreBranch=${trackerCoreBranch} -f revision=${version}${trackerCoreArg}${submodulesArg}`,
+    { stdio: 'inherit' }
+  );
   console.log('✓ Workflow triggered');
 } catch (error) {
   console.error('⚠️  Failed to trigger workflow via gh CLI');

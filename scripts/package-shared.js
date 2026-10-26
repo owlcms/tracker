@@ -147,6 +147,7 @@ export function checkTagExists(owner, repo, tag) {
 
 export async function resolveTrackerCoreVersion({
   requestedVersion,
+  requestedBranch,
   promptOnAuto = false,
   allowRelease = false
 } = {}) {
@@ -179,12 +180,30 @@ export async function resolveTrackerCoreVersion({
       );
     }
 
-    const runRelease = await promptConfirmation(`tracker-core@${trackerCoreVersion} not found. Run tracker-core release now?`);
+    if (!requestedBranch) {
+      throw new Error(`tracker-core version '${trackerCoreVersion}' does not exist and no tracker-core branch was specified`);
+    }
+
+    const runRelease = await promptConfirmation(
+      `tracker-core@${trackerCoreVersion} not found. Release it from branch ${requestedBranch} now?`
+    );
     if (!runRelease) {
       throw new Error(`tracker-core version '${trackerCoreVersion}' not found`);
     }
 
-    execSync(`cd ../tracker-core && npm run release -- ${trackerCoreVersion}`, { stdio: 'inherit' });
+    const releaseResult = spawnSync(
+      path.resolve('../tracker-core/release.sh'),
+      [trackerCoreVersion, requestedBranch],
+      { stdio: 'inherit' }
+    );
+    if (releaseResult.status !== 0) {
+      throw new Error(
+        `tracker-core release failed for version ${trackerCoreVersion} on branch ${requestedBranch}`
+      );
+    }
+    if (!await checkTagExists('owlcms', 'tracker-core', trackerCoreVersion)) {
+      throw new Error(`tracker-core release completed but tag '${trackerCoreVersion}' is not visible on GitHub`);
+    }
   }
 
   return trackerCoreVersion;
@@ -217,6 +236,7 @@ export function refreshPackageLock({ packageLockPath = 'package-lock.json' } = {
 
 export async function runVersionChecks({
   requestedVersion,
+  requestedBranch,
   promptOnAuto = false,
   allowRelease = false,
   updatePackageJson = false,
@@ -226,6 +246,7 @@ export async function runVersionChecks({
 } = {}) {
   const trackerCoreVersion = await resolveTrackerCoreVersion({
     requestedVersion,
+    requestedBranch,
     promptOnAuto,
     allowRelease
   });

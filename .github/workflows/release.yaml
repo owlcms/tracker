@@ -7,11 +7,19 @@ on:
       revision:
         description: 'semver number for the release'
         required: true
-        default: '2.6.0'
+        default: '3.0.0-beta01'
+      sourceRef:
+        description: 'tracker branch or tag to build'
+        required: true
+        default: 'dev69'
       trackerCoreVersion:
-        description: 'tracker-core version (leave empty for latest)'
-        required: false
-        default: ''
+        description: 'tracker-core tag to install'
+        required: true
+        default: '2.0.0-beta01'
+      trackerCoreBranch:
+        description: 'tracker-core branch that must contain the selected tag'
+        required: true
+        default: 'dev69'
       includeSubmodules:
         description: 'Include git submodules (e.g., books) in the build'
         required: true
@@ -22,13 +30,40 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REVISION: ${{ github.event.inputs.revision }}
+      SOURCE_REF: ${{ github.event.inputs.sourceRef }}
       TRACKER_CORE_VERSION: ${{ github.event.inputs.trackerCoreVersion }}
+      TRACKER_CORE_BRANCH: ${{ github.event.inputs.trackerCoreBranch }}
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.sourceRef }}
           submodules: ${{ inputs.includeSubmodules }}
+
+      - name: Verify release sources
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          checked_out="$(git branch --show-current)"
+          if [[ "${checked_out}" != "${SOURCE_REF}" ]]; then
+            echo "❌ Expected tracker ref ${SOURCE_REF}, checked out ${checked_out:-detached HEAD}"
+            exit 1
+          fi
+
+          comparison="$(gh api \
+            "repos/owlcms/tracker-core/compare/${TRACKER_CORE_VERSION}...${TRACKER_CORE_BRANCH}" \
+            --jq '.status')"
+          if [[ "${comparison}" != "identical" && "${comparison}" != "ahead" ]]; then
+            echo "❌ tracker-core tag ${TRACKER_CORE_VERSION} is not contained in branch ${TRACKER_CORE_BRANCH}"
+            echo "GitHub comparison status: ${comparison}"
+            exit 1
+          fi
+
+          echo "✓ tracker source: ${SOURCE_REF} ($(git rev-parse HEAD))"
+          echo "✓ tracker-core ${TRACKER_CORE_VERSION} is on ${TRACKER_CORE_BRANCH}"
 
       - name: Fail if tag or release already exists
         env:
@@ -79,7 +114,13 @@ jobs:
           # Verify tracker-core version
           echo ""
           echo "📋 Checking @owlcms/tracker-core version:"
-          npm list @owlcms/tracker-core || true
+          npm list @owlcms/tracker-core
+          installed_core="$(node -p "require('./node_modules/@owlcms/tracker-core/package.json').version")"
+          if [[ "${installed_core}" != "${TRACKER_CORE_VERSION}" ]]; then
+            echo "❌ Requested tracker-core ${TRACKER_CORE_VERSION}, installed ${installed_core}"
+            exit 1
+          fi
+          echo "✓ Installed tracker-core ${installed_core}"
       
       - name: Clean experimental plugins
         run: |

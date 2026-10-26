@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 REVISION="${1:-3.0.0-beta01}"
-# Usage: ./release.sh [tracker-version] [tracker-core-version] [--submodules]
-# tracker-core must be released first (../tracker-core/release.sh); its tag is pinned in package.json.
+# Usage: ./release.sh [tracker-version] [tracker-core-version] [tracker-core-branch] [--submodules]
+# If the tracker-core tag does not exist, the tracker release calls ../tracker-core/release.sh
+# with TRACKER_CORE and TRACKER_CORE_BRANCH before pinning the resulting tag.
 TRACKER_CORE="${2:-2.0.0-beta01}"
+EXPECTED_BRANCH="${RELEASE_BRANCH:-dev69}"
+TRACKER_CORE_BRANCH="${3:-${EXPECTED_BRANCH}}"
 set -euo pipefail
 
 # TEMPORARY (Node.js CVE, Oct 2026): .github/workflows/release.yaml sets `pull: true`
@@ -18,7 +21,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
+CURRENT_BRANCH="$(git branch --show-current)"
+if [[ "${CURRENT_BRANCH}" != "${EXPECTED_BRANCH}" ]]; then
+  echo "Error: tracker ${REVISION} must be released from ${EXPECTED_BRANCH}; current branch is ${CURRENT_BRANCH:-detached HEAD}." >&2
+  exit 1
+fi
+
 echo "Revision:  ${REVISION}"
 echo "tracker-core: ${TRACKER_CORE}"
+echo "core branch: ${TRACKER_CORE_BRANCH}"
+echo "Branch:    ${CURRENT_BRANCH}"
 
-npm run release -- "${REVISION}" "${TRACKER_CORE}" "${@:3}"
+TRACKER_CORE_BRANCH="${TRACKER_CORE_BRANCH}" npm run release -- "${REVISION}" "${TRACKER_CORE}" "${@:4}"
