@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-REVISION="${1:-2.22.5}"
+REVISION="${1:-3.0.0-beta01}"
+# Usage: ./release.sh [tracker-version] [tracker-core-version] [--submodules]
+# tracker-core must be released first (../tracker-core/release.sh); its tag is pinned in package.json.
+TRACKER_CORE="${2:-2.0.0-beta01}"
 set -euo pipefail
 
 # TEMPORARY (Node.js CVE, Oct 2026): .github/workflows/release.yaml sets `pull: true`
@@ -16,9 +19,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
 echo "Revision:  ${REVISION}"
+echo "tracker-core: ${TRACKER_CORE}"
 
-if [[ $# -eq 0 ]]; then
-  npm run release -- "${REVISION}"
-else
-  npm run release -- "${REVISION}" "${@:2}"
-fi
+npm run release -- "${REVISION}" "${TRACKER_CORE}" "${@:3}"

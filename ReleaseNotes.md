@@ -3,6 +3,15 @@
 
 > #### ⚠ It is recommended to update OWLCMS to the latest stable version when updating Tracker.
 
+## 3.0
+
+- 3.0.0-beta01: **Requires OWLCMS 69.** The tracker now uses tracker-core 2.0, which only accepts protocol 69.0.0 or later. OWLCMS 66, 67 and 68 send protocol 64.0.0: the tracker shows a "Protocol Version Mismatch" message on its home page and ignores their data. Update OWLCMS and the tracker together.
+- 3.0.0-beta01: Attempt board shows the referee lights, the jury votes and the jury decision as the OWLCMS attempt board does (options `showJuryVotes` and `juryCardSeconds`).
+- 3.0.0-beta01: Attempt board: referee lights are rectangles as on the OWLCMS attempt board. A jury or panel review shows the jury votes, then a jury card with the final decision ("New Record!" instead of "Good Lift" when a record was set). The team name and the athlete picture stay visible during decisions.
+- 3.0.0-beta01: Attempt board: the break countdown is shown only when OWLCMS shows it (not for indefinite breaks), and ceremony titles (introductions, medals) are shown during a countdown.
+- 3.0.0-beta01: Break countdowns no longer reach zero early, and pages opened right after a restart or a reconnection no longer show untranslated keys (`!Group_number`, ...). See tracker-core 2.0.0-beta01.
+- 3.0.0-beta01: Pages that produce documents (results books, protocols) ask OWLCMS for fresh copies of flags, logos and pictures before generating, without disconnecting OWLCMS.
+
 ## 2.22
 
 - 2.22.5: Security: the Docker image is rebuilt on the latest `node:22-alpine` base to pick up the Node.js 22.23.4 security release (October 21, 2026).  fly.io users should update.

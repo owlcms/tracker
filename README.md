@@ -5,6 +5,10 @@
 
 A Node.js SvelteKit application that receives real-time competition updates from OWLCMS and displays them through multiple scoreboard types.
 
+## Requirements
+
+This version of the tracker requires **OWLCMS 69** or later. Earlier OWLCMS versions (66, 67, 68) use an older WebSocket protocol (64.0.0) and are refused with a "Protocol Version Mismatch" message.
+
 ## Goals
 
 This project aims at giving users of owlcms the capability to create their own scoreboards, TV graphics, and documents.  The program receives the database from owlcms and all lifting order, decisions and timer updates.
