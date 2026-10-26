@@ -14,7 +14,7 @@ import { scoreboardRegistry } from '$lib/server/scoreboard-registry.js';
 import { competitionHub } from '$lib/server/competition-hub.js';
 import { sseBroker } from '$lib/server/sse-broker.js';
 import { buildOptions } from '$lib/server/build-options.js';
-import { refreshDatabaseForDocuments } from '$lib/server/document-refresh.js';
+import { refreshResourcesForDocuments } from '$lib/server/document-refresh.js';
 import { logger } from '@owlcms/tracker-core';
 
 const responseCache = new Map();
@@ -113,7 +113,7 @@ export async function GET({ url, request }) {
 		});
 
 		if (scoreboard?.config?.category === 'documents') {
-			await refreshDatabaseForDocuments();
+			await refreshResourcesForDocuments(scoreboard.config.requires || []);
 		}
 		
 		if (fopName === '*') {

@@ -1,11 +1,13 @@
 import { json } from '@sveltejs/kit';
-import { closeConnection, competitionHub } from '@owlcms/tracker-core';
+import { competitionHub } from '@owlcms/tracker-core';
 import { scoreboardRegistry } from '$lib/server/scoreboard-registry.js';
 
 /**
  * Manual refresh endpoint
  * POST - Flush all plugin caches (keeps hub data, rebuilds from last OWLCMS data)
- * POST with ?fullRefresh=true - Close WebSocket to force OWLCMS full reconnect and data resend
+ * POST with ?fullRefresh=true - Ask OWLCMS to resend fresh copies of everything the
+ *   tracker holds (database, translations, flags, and logos/pictures/GAMX when loaded),
+ *   wait for them, then flush caches. The OWLCMS connection stays open.
  * 
  * Both modes broadcast an SSE event so browsers automatically re-fetch data.
  */
@@ -15,14 +17,14 @@ export async function POST({ url }) {
     
     console.log('[API] Refresh requested: fullRefresh=' + fullRefresh);
     
+    // Full refresh: fetch fresh data from OWLCMS before flushing, so browsers re-fetch fresh data
+    let refresh = null;
+    if (fullRefresh) {
+      refresh = await competitionHub.requestFullRefresh();
+    }
+    
     // Flush all plugin caches via the registry
     const cacheEpoch = scoreboardRegistry.flushCaches();
-    
-    // Full refresh closes WebSocket - OWLCMS will automatically reconnect and resend everything
-    let connectionClosed = false;
-    if (fullRefresh) {
-      connectionClosed = closeConnection();
-    }
     
     // Broadcast refresh event to all connected browsers via SSE
     // This triggers browsers to re-fetch their scoreboard data immediately
@@ -44,12 +46,14 @@ export async function POST({ url }) {
     return json({
       success: true,
       message: fullRefresh 
-        ? (connectionClosed 
-            ? 'Full refresh - WebSocket closed, OWLCMS will reconnect and resend all data'
-            : 'Full refresh requested but no active connection to close')
+        ? (!refresh.sent
+            ? 'Full refresh requested but no active OWLCMS connection'
+            : refresh.timedOut.length > 0
+              ? `Full refresh - timed out waiting for ${refresh.timedOut.join(', ')}`
+              : 'Full refresh - fresh data received from OWLCMS')
         : 'Plugin caches flushed - browsers notified to re-fetch',
       fullRefresh,
-      connectionClosed,
+      ...(refresh ? { refreshed: refresh.received, timedOut: refresh.timedOut } : {}),
       cacheEpoch,
       browsersNotified: fops.length + 1,
       timestamp: Date.now()

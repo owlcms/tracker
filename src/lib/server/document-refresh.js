@@ -2,89 +2,39 @@ import { competitionHub } from '$lib/server/competition-hub.js';
 import { logger } from '@owlcms/tracker-core';
 
 /**
- * Request resources from OWLCMS via the hub's injected callback.
- * 
- * We must NOT import requestResources directly from tracker-core because
- * Vite may create separate module instances (one for vite.config.js, another
- * for SvelteKit SSR), each with its own `activeConnection` variable.
- * Only the instance loaded by vite.config.js has the real connection.
- * 
- * The hub singleton (globalThis.__competitionHub) is safe from this problem.
- * During WebSocket init, tracker-core injects requestResources into the hub
- * via hub.setRequestResourcesCallback(). So we call through the hub.
+ * Refresh the data a document is built from, before producing it.
+ *
+ * Asks OWLCMS (refresh:true) for a fresh database plus the archives the plugin
+ * requires (e.g. logos_zip, flags_zip, gamx_zip), so OWLCMS rebuilds its cached
+ * archives and the document reflects the current OWLCMS state. Waits for them,
+ * then continues with whatever is loaded if the wait times out.
+ *
+ * We call through the hub singleton (globalThis.__competitionHub) and must NOT
+ * import the WebSocket helpers from tracker-core directly: Vite may create a
+ * separate module instance for SvelteKit SSR that has no OWLCMS connection.
+ *
+ * @param {Array<string>} requires - Resources declared in the plugin config (`config.requires`)
+ * @param {number} timeoutMs - Max time to wait (default 10000ms)
+ * @returns {Promise<boolean>} true if everything was refreshed, false if not sent or timed out
  */
-function requestResourcesViaHub(resources) {
-	if (typeof competitionHub._requestResourcesCallback !== 'function') {
-		logger.warn('[Documents] Cannot request resources - WebSocket not initialized yet');
+export async function refreshResourcesForDocuments(requires = [], timeoutMs = 10000) {
+	if (typeof competitionHub.refreshResources !== 'function') {
+		logger.warn('[Documents] tracker-core does not support resource refresh; continuing with cached state');
 		return false;
 	}
-	return competitionHub._requestResourcesCallback(resources);
-}
 
-/**
- * Requests a fresh database from OWLCMS and waits for it to load.
- * Robust implementation that retries requests if the connection is erratic
- * or if the response is lost (e.g. during authentication race conditions).
- * 
- * @param {number} timeoutMs - Max time to wait (default 5000ms)
- * @returns {Promise<boolean>} true if database updated, false if timed out
- */
-export async function refreshDatabaseForDocuments(timeoutMs = 5000) {
-	const startTime = Date.now();
-	// Capture baseline before we start - we want a load NEWER than this
-	const baselineLoad = competitionHub.lastDatabaseLoad || 0;
+	const resources = ['database', ...requires];
+	logger.debug(`[Documents] Requesting fresh resources from OWLCMS: ${resources.join(', ')}`);
+	const { sent, timedOut } = await competitionHub.refreshResources(resources, { timeoutMs });
 
-	// Check if a load happened since we started (unlikely, but possible)
-	const hasAdvancedLoad = () => (competitionHub.lastDatabaseLoad || 0) > baselineLoad;
-
-	let attempt = 1;
-
-	// Helper to wait for the database update
-	const waitForUpdate = (waitTime) => {
-		return new Promise(resolve => {
-			if (hasAdvancedLoad()) return resolve(true);
-
-			let settled = false;
-			let checkInterval = null;
-			let timeout = null;
-
-			const finish = (value) => {
-				if (settled) return;
-				settled = true;
-				if (checkInterval) clearInterval(checkInterval);
-				if (timeout) clearTimeout(timeout);
-				resolve(value);
-			};
-
-			checkInterval = setInterval(() => {
-				if (hasAdvancedLoad()) finish(true);
-			}, 100);
-
-			timeout = setTimeout(() => finish(false), waitTime);
-		});
-	};
-
-	logger.debug('[Documents] Requesting fresh database from OWLCMS...');
-
-	while (Date.now() - startTime < timeoutMs) {
-		const sent = requestResourcesViaHub(['database']);
-
-		if (sent) {
-			const waitTime = Math.min(2000, timeoutMs - (Date.now() - startTime));
-			const success = await waitForUpdate(waitTime);
-
-			if (success) {
-				logger.debug(`[Documents] Database refreshed (attempt ${attempt})`);
-				return true;
-			}
-		}
-
-		if (Date.now() - startTime < timeoutMs) {
-			await new Promise(r => setTimeout(r, 500));
-		}
-		attempt++;
+	if (!sent) {
+		logger.warn('[Documents] No OWLCMS connection; continuing with cached state');
+		return false;
 	}
-
-	logger.warn(`[Documents] Timed out after ${timeoutMs}ms waiting for refreshed database; continuing with cached state`);
-	return false;
+	if (timedOut.length > 0) {
+		logger.warn(`[Documents] Timed out after ${timeoutMs}ms waiting for ${timedOut.join(', ')}; continuing with cached state`);
+		return false;
+	}
+	logger.debug('[Documents] Resources refreshed');
+	return true;
 }

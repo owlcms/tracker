@@ -443,18 +443,19 @@ Developers can manually flush all caches via REST API:
 # Flush plugin caches only (keeps hub data)
 curl -X POST http://localhost:8096/api/refresh
 
-# Full refresh: close WebSocket, force OWLCMS to reconnect and resend all data
+# Full refresh: ask OWLCMS to resend fresh database, translations and archives, then flush
 curl -X POST http://localhost:8096/api/refresh?fullRefresh=true
 ```
 
 **Refresh Flow:**
 
-1. **POST `/api/refresh`** → `scoreboardRegistry.flushCaches()`
-2. **Bump epoch** → Clear all registered caches (prevents memory leaks)
-3. **Emit SSE events** → Notify all connected browsers for each FOP
-4. **Browsers receive SSE** → Re-fetch scoreboard data via `/api/scoreboard`
-5. **First browser** → Cache miss, recomputes from hub data (50ms)
-6. **Remaining browsers** → Cache hit, instant response (1ms each)
+1. **(fullRefresh only)** `competitionHub.requestFullRefresh()` → OWLCMS rebuilds its archives and resends them; the connection stays open
+2. **POST `/api/refresh`** → `scoreboardRegistry.flushCaches()`
+3. **Bump epoch** → Clear all registered caches (prevents memory leaks)
+4. **Emit SSE events** → Notify all connected browsers for each FOP
+5. **Browsers receive SSE** → Re-fetch scoreboard data via `/api/scoreboard`
+6. **First browser** → Cache miss, recomputes from hub data (50ms)
+7. **Remaining browsers** → Cache hit, instant response (1ms each)
 
 **Response Example:**
 
@@ -463,12 +464,13 @@ curl -X POST http://localhost:8096/api/refresh?fullRefresh=true
   "success": true,
   "message": "Plugin caches flushed - browsers notified to re-fetch",
   "fullRefresh": false,
-  "connectionClosed": false,
   "cacheEpoch": 42,
   "browsersNotified": 4,
   "timestamp": 1735862400000
 }
 ```
+
+With `fullRefresh=true`, the response also includes `refreshed` (resources received) and `timedOut` (resources not received in time).
 
 **Benefits:**
 - ✅ **No memory leaks** - Caches are cleared directly, no orphaned entries
@@ -795,14 +797,14 @@ eventSource.onmessage = (event) => {
 **Purpose:** Manually flush plugin caches and notify browsers to re-fetch
 
 **Parameters:**
-- `fullRefresh=true` (optional) - Close WebSocket to force OWLCMS reconnection
+- `fullRefresh=true` (optional) - Ask OWLCMS to resend fresh database, translations and archives (connection stays open). The response then also includes `refreshed` and `timedOut` resource lists
 
 **Examples:**
 ```bash
 # Flush plugin caches only (keeps hub data)
 curl -X POST http://localhost:8096/api/refresh
 
-# Full refresh: close WebSocket, force OWLCMS to reconnect
+# Full refresh: ask OWLCMS to resend fresh data
 curl -X POST http://localhost:8096/api/refresh?fullRefresh=true
 ```
 
@@ -812,7 +814,6 @@ curl -X POST http://localhost:8096/api/refresh?fullRefresh=true
   "success": true,
   "message": "Plugin caches flushed - browsers notified to re-fetch",
   "fullRefresh": false,
-  "connectionClosed": false,
   "cacheEpoch": 42,
   "browsersNotified": 4,
   "timestamp": 1735862400000
@@ -822,7 +823,7 @@ curl -X POST http://localhost:8096/api/refresh?fullRefresh=true
 **Workflow:**
 1. Clears all registered plugin caches (8 caches total)
 2. Emits SSE events for all FOPs (triggers browser re-fetch)
-3. Optionally closes WebSocket (if `fullRefresh=true`)
+3. With `fullRefresh=true`, first fetches fresh data from OWLCMS (`competitionHub.requestFullRefresh()`)
 
 **Use Cases:**
 - Testing plugin changes without server restart
