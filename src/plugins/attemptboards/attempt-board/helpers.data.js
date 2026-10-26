@@ -10,7 +10,15 @@
 import { competitionHub } from '$lib/server/competition-hub.js';
 import { logger } from '@owlcms/tracker-core';
 import { getFlagUrl, getPictureUrl } from '$lib/server/flag-resolver.js';
-import { extractTimerAndDecisionState } from '$lib/server/timer-decision-helpers.js';
+import { extractTimerAndDecisionState, extractDecisionDisplayDefaults } from '$lib/server/timer-decision-helpers.js';
+import {
+	adjudicationKey,
+	buildJuryLabels,
+	isJuryBreak,
+	resolveCardSeconds,
+	resolveShowJuryVotes,
+	reviewLabelKey
+} from './decision-display.js';
 
 /**
  * Get the full database state - SERVER-SIDE ONLY
@@ -223,18 +231,13 @@ function inferGroupName(fopUpdate, translations) {
  * @returns {string}
  */
 function inferBreakMessage(breakType, ceremonyType, translations, mode) {
-	// Match OWLCMS BreakDisplay.java::inferMessage logic:
-	// 1. If both null -> "Competition Paused"
-	// 2. If ceremonyType != null (and breakType == CEREMONY) -> ceremony message  
-	// 3. Otherwise use breakType
-	
 	if (!breakType && !ceremonyType) {
 		return translations?.['PublicMsg.CompetitionPaused'] || '!PublicMsg.CompetitionPaused';
 	}
 	
-	// Handle ceremony during a break (breakType == "CEREMONY" means we're in a ceremony)
-	// Only use ceremonyType when breakType indicates a ceremony is active
-	if (breakType === 'CEREMONY' && ceremonyType) {
+	// Ceremonies overlay a break; CeremonyDone can still carry the old ceremonyType,
+	// so the board mode determines whether the ceremony is active.
+	if (ceremonyType && (mode === 'CEREMONY' || mode === 'LIFT_COUNTDOWN_CEREMONY' || breakType === 'CEREMONY')) {
 		switch (ceremonyType) {
 			case 'INTRODUCTION':
 				return translations?.['BreakMgmt.IntroductionOfAthletes'] || '!BreakMgmt.IntroductionOfAthletes';
@@ -291,12 +294,20 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 	const showTimer = isEnabledOption(options.showTimer);
 	const showDecisions = isEnabledOption(options.showDecisions);
 	const lang = options.lang || 'en';
+	const showJuryVotes = resolveShowJuryVotes(options.showJuryVotes, extractDecisionDisplayDefaults(fopUpdate));
+	const juryCardSeconds = resolveCardSeconds(options.juryCardSeconds);
 	
 	// Get learning mode from environment
 	const learningMode = process.env.LEARNING_MODE === 'true' ? 'enabled' : 'disabled';
 	
 	// Extract timer, breakTimer, decision, and displayMode using shared helpers
-	const { timer, breakTimer, decision, displayMode } = extractTimerAndDecisionState(fopUpdate, fopName);
+	const { timer, breakTimer, decision: baseDecision, displayMode } = extractTimerAndDecisionState(fopUpdate, fopName);
+
+	// The jury card is latched by the page: it needs the judged athlete and how old the decision is
+	const adjudicationReceivedAt = baseDecision?.adjudicationDecisionReceivedAt || null;
+	const decision = baseDecision?.adjudicationDecision
+		? { ...baseDecision, athleteFull: fopUpdate?.athleteFull || null }
+		: baseDecision;
 	
 	// Extract mode from fopUpdate (OWLCMS board mode)
 	// Values: WAIT, INTRO_COUNTDOWN, LIFT_COUNTDOWN, LIFT_COUNTDOWN_CEREMONY, 
@@ -335,7 +346,8 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 			breakType,
 			ceremonyType,
 			sessionStatus: { isDone: false },
-			options: { showPlates, showTimer, showDecisions, showFlag: false, showPicture: false },
+			options: { showPlates, showTimer, showDecisions, showJuryVotes, juryCardSeconds, showFlag: false, showPicture: false },
+			juryLabels: buildJuryLabels(translations),
 			status: 'waiting',
 			message: translations?.WaitingNextGroup || 'Waiting for next group',
 			learningMode
@@ -434,6 +446,10 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 	const inBreak = isBreakMode(mode);
 	const inCountdown = isCountdownMode(mode);
 	
+	// Review label (jury deliberation, adjudication panel review, challenge) from OWLCMS decisionState
+	const reviewKey = reviewLabelKey(decision?.decisionState);
+	const reviewLabel = reviewKey ? (translations?.[reviewKey] || `!${reviewKey}`) : null;
+
 	// Compute break titles using tracker translations (not OWLCMS fullName)
 	let breakTitle = null;  // lastName during breaks (group/session name)
 	let breakMessage = null;  // firstName during breaks (break type message)
@@ -441,6 +457,9 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 	if (inBreak) {
 		breakTitle = inferGroupName(fopUpdate, translations);
 		breakMessage = inferBreakMessage(breakType, ceremonyType, translations, mode);
+		if (reviewLabel && isJuryBreak(breakType)) {
+			breakMessage = reviewLabel;
+		}
 		logger.debug(`[Attempt Board] Break: breakType="${breakType}", breakTitle="${breakTitle}", breakMessage="${breakMessage}"`);
 	}
 
@@ -475,11 +494,18 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 		// Break display content (computed by tracker, not from OWLCMS fullName)
 		breakTitle,      // Shows in lastName position during breaks
 		breakMessage,    // Shows in firstName position during breaks
+		reviewLabel,
+		// Jury card: texts, identity and age (server clock) of the latest adjudicationDecision
+		juryLabels: buildJuryLabels(translations),
+		adjudicationKey: adjudicationKey(decision?.adjudicationDecision, adjudicationReceivedAt),
+		adjudicationAgeMs: adjudicationReceivedAt ? Math.max(0, Date.now() - adjudicationReceivedAt) : 0,
 		sessionStatus,
 		options: { 
 			showPlates, 
 			showTimer, 
 			showDecisions, 
+			showJuryVotes,
+			juryCardSeconds,
 			showFlag: !!currentAttempt?.flagUrl, 
 			showPicture: !!currentAttempt?.pictureUrl 
 		},

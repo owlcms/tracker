@@ -9,5 +9,6 @@ export {
   extractTimers, 
   computeDisplayMode,
   extractDecisionState, 
+  extractDecisionDisplayDefaults,
   extractTimerAndDecisionState 
 } from '@owlcms/tracker-core/utils';

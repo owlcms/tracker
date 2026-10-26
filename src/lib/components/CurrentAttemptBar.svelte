@@ -329,27 +329,24 @@
 		align-items: center;
 	}
 
+	/* OWLCMS scoreboard proportions: rounded rectangles 1.25 times as wide as tall */
 	.referee-light {
-		width: 2.2rem;
+		width: 2.75rem;
 		height: 2.2rem;
-		border-radius: 50%;
-		background: rgba(255, 255, 255, 0.1);
-		border: 2px solid rgba(255, 255, 255, 0.2);
+		box-sizing: border-box;
+		border-radius: 5%;
+		background: rgba(255, 255, 255, 0.2);
+		border: 2px dashed #ffffff;
 	}
 
 	.referee-light.good {
 		background: #ffffff;
-		border-color: #ffffff;
+		border-style: solid;
 	}
 
 	.referee-light.bad {
-		background: #dc2626;
-		border-color: #dc2626;
-	}
-
-	.referee-light.pending {
-		background: rgba(255, 255, 255, 0.1);
-		border-color: rgba(255, 255, 255, 0.2);
+		background: red;
+		border-style: solid;
 	}
 
 	.session-info {
@@ -389,7 +386,7 @@
 		}
 
 		.referee-light {
-			width: 2rem;
+			width: 2.5rem;
 			height: 2rem;
 		}
 
@@ -436,7 +433,7 @@
 		}
 
 		.referee-light {
-			width: 1.8rem;
+			width: 2.25rem;
 			height: 1.8rem;
 		}
 
@@ -498,7 +495,7 @@
 		}
 
 		.referee-light {
-			width: 1.5rem;
+			width: 1.875rem;
 			height: 1.5rem;
 		}
 
@@ -579,7 +576,7 @@
 		}
 
 		.referee-light {
-			width: 1.6rem;
+			width: 2.0rem;
 			height: 1.6rem;
 		}
 
@@ -641,7 +638,7 @@
 		}
 
 		.referee-light {
-			width: 1.3rem;
+			width: 1.625rem;
 			height: 1.3rem;
 		}
 
@@ -701,7 +698,7 @@
 		}
 
 		.referee-light {
-			width: 1.1rem;
+			width: 1.375rem;
 			height: 1.1rem;
 		}
 

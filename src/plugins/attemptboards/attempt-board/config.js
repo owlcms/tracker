@@ -10,7 +10,8 @@
  * - Barbell/plates visualization
  * - Attempt info (e.g., "C. & J. #2")
  * - Timer countdown (large, yellow/green)
- * - Decision lights (down signal or referee decisions)
+ * - Decision lights (down signal or referee decisions), jury votes and review votes
+ * - Jury Good Lift / No Lift card
  */
 
 export default {
@@ -41,6 +42,22 @@ export default {
 			type: 'boolean',
 			default: true,
 			description: 'Show referee decision lights'
+		},
+		{
+			key: 'showJuryVotes',
+			label: 'Show Jury Votes',
+			type: 'select',
+			options: ['auto', 'true', 'false'],
+			default: 'auto',
+			description: 'Show the jury circles under the referee lights. auto follows the OWLCMS "jury decisions on attempt board" setting'
+		},
+		{
+			key: 'juryCardSeconds',
+			label: 'Jury Card Duration (seconds)',
+			type: 'number',
+			default: 5,
+			min: 0,
+			description: 'How long the jury Good Lift / No Lift card stays on screen. 0 turns the card off'
 		}
 	]
 };

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
 		getSessionStatus: vi.fn()
 	},
 	extractTimerAndDecisionState: vi.fn(),
+	extractDecisionDisplayDefaults: vi.fn(),
 	logger: {
 		warn: vi.fn(),
 		debug: vi.fn(),
@@ -27,7 +28,8 @@ vi.mock('$lib/server/flag-resolver.js', () => ({
 }));
 
 vi.mock('$lib/server/timer-decision-helpers.js', () => ({
-	extractTimerAndDecisionState: mocks.extractTimerAndDecisionState
+	extractTimerAndDecisionState: mocks.extractTimerAndDecisionState,
+	extractDecisionDisplayDefaults: mocks.extractDecisionDisplayDefaults
 }));
 
 vi.mock('@owlcms/tracker-core', () => ({
@@ -43,6 +45,8 @@ describe('Attempt board option parsing', () => {
 		mocks.competitionHub.getTranslations.mockReset();
 		mocks.competitionHub.getSessionStatus.mockReset();
 		mocks.extractTimerAndDecisionState.mockReset();
+		mocks.extractDecisionDisplayDefaults.mockReset();
+		mocks.extractDecisionDisplayDefaults.mockReturnValue({});
 
 		mocks.competitionHub.getFopUpdate.mockReturnValue(null);
 		mocks.competitionHub.getDatabaseState.mockReturnValue(null);
@@ -82,5 +86,11 @@ describe('Attempt board option parsing', () => {
 			showTimer: false,
 			showDecisions: false
 		});
+	});
+
+	it('defaults the jury options: votes follow OWLCMS, card lasts 5 seconds', () => {
+		const data = getScoreboardData('Platform_A', {});
+
+		expect(data.options).toMatchObject({ showJuryVotes: false, juryCardSeconds: 5 });
 	});
 });
