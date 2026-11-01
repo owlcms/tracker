@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
-	backupUrl,
+	checkpointUrl,
 	createFolder,
 	dispositionFileName,
 	folderSummary,
@@ -76,8 +76,8 @@ describe('checkpoint core', () => {
 			name: SECOND
 		});
 
-		expect(requests[0]).toEqual({ url: 'http://owlcms.local:8080/competition/backup', auth: 'Bearer 4821' });
-		expect(requests[1].url).toBe(`http://owlcms.local:8080/competition/backup?since=${encodeURIComponent(FIRST)}`);
+		expect(requests[0]).toEqual({ url: 'http://owlcms.local:8080/competition/checkpoint', auth: 'Bearer 4821' });
+		expect(requests[1].url).toBe(`http://owlcms.local:8080/competition/checkpoint?since=${encodeURIComponent(FIRST)}`);
 		expect(requests[1].auth).toBeUndefined();
 
 		expect(readdirSync(folder).filter((name) => name.endsWith('.json'))).toEqual(['database_v2_2026-11-01_07h31.json']);
@@ -139,9 +139,9 @@ describe('checkpoint core', () => {
 	it('reads the name OWLCMS sends and builds the request', () => {
 		expect(dispositionFileName(`attachment; filename="${FIRST}"`)).toBe(FIRST);
 		expect(dispositionFileName(null)).toBeNull();
-		expect(String(backupUrl('localhost:8080', null))).toBe('http://localhost:8080/competition/backup');
-		expect(String(backupUrl('https://owlcms.example.org', FIRST))).toBe(
-			`https://owlcms.example.org/competition/backup?since=${encodeURIComponent(FIRST)}`
+		expect(String(checkpointUrl('localhost:8080', null))).toBe('http://localhost:8080/competition/checkpoint');
+		expect(String(checkpointUrl('https://owlcms.example.org', FIRST))).toBe(
+			`https://owlcms.example.org/competition/checkpoint?since=${encodeURIComponent(FIRST)}`
 		);
 	});
 

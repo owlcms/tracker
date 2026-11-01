@@ -1,16 +1,15 @@
 /**
- * Recovery checkpoints: when to pull. No I/O of its own: the pull, the clock and the timers are injected.
+ * Checkpoints: when to pull. No I/O of its own: the pull, the clock and the timers are injected.
  *
  * While started:
  * - Start, and database:received (OWLCMS started, reconnected or sent its database), pull right away.
- * - At each interval, pull only if competition activity was seen since the last pull, or if the last stored
- *   checkpoint is older than UNCONDITIONAL_MS.
+ * - Pull at each interval. The hub does not see everything that changes the logs (weigh-in, registration,
+ *   settings), so there is no activity filter; with `since`, a quiet interval sends only the export.
  * - When OWLCMS does not answer (no response, 5xx, incomplete zip), try again every RETRY_MS until it does.
  * - When OWLCMS refuses (wrong secret, role, lockout), stop: retrying would keep the officials PIN locked out.
  */
 
 export const RETRY_MS = 60_000;
-export const UNCONDITIONAL_MS = 30 * 60_000;
 export const DEFAULT_INTERVAL_MINUTES = 5;
 
 export class CheckpointRunner {
@@ -27,11 +26,9 @@ export class CheckpointRunner {
 		this.clearTimer = clearTimer;
 		this.settings = { owlcmsUrl: '', secret: '', folder: '', intervalMinutes: DEFAULT_INTERVAL_MINUTES };
 		this.started = false;
-		this.activity = false;
 		this.pulling = false;
 		this.again = false;
 		this.timer = null;
-		this.lastStoredAt = 0;
 		this.status = {
 			lastCheckpoint: null,
 			lastCheckpointAt: null,
@@ -66,15 +63,22 @@ export class CheckpointRunner {
 		return { success: true };
 	}
 
-	/** @param {(folder: string) => boolean} folderExists */
-	start(folderExists) {
-		if (this.started) return { success: true };
+	/** @returns a refusal when a pull cannot be made with the current settings, else null */
+	checkSettings(folderExists) {
 		if (!this.settings.owlcmsUrl) {
 			return { success: false, message: 'Enter the OWLCMS address first.' };
 		}
 		if (!this.settings.folder || !folderExists(this.settings.folder)) {
 			return { success: false, message: 'Choose an existing checkpoint folder first.' };
 		}
+		return null;
+	}
+
+	/** @param {(folder: string) => boolean} folderExists */
+	start(folderExists) {
+		if (this.started) return { success: true };
+		const refusal = this.checkSettings(folderExists);
+		if (refusal) return refusal;
 		this.started = true;
 		this.status.lastError = null;
 		this.status.waiting = false;
@@ -92,17 +96,29 @@ export class CheckpointRunner {
 		return { success: true };
 	}
 
+	/**
+	 * One checkpoint now, for instance at the end of a competition. While started, it also restarts the interval;
+	 * while stopped, polling stays stopped.
+	 */
+	async requestCheckpoint(folderExists) {
+		const refusal = this.checkSettings(folderExists);
+		if (refusal) return refusal;
+		if (this.pulling) {
+			return { success: false, message: 'A checkpoint is being taken; try again in a moment.' };
+		}
+		this.cancelTimer();
+		const result = await this.runPull();
+		return result.outcome === 'stored'
+			? { success: true, name: result.name }
+			: { success: false, message: result.message };
+	}
+
 	/** After a tracker restart: resume polling without counting it as a new Start. */
 	resume() {
 		if (this.started) this.pullNow();
 	}
 
-	noteActivity() {
-		this.activity = true;
-	}
-
 	databaseReceived() {
-		this.activity = true;
 		this.pullNow();
 	}
 
@@ -119,18 +135,11 @@ export class CheckpointRunner {
 	async tick() {
 		this.timer = null;
 		if (!this.started || this.pulling) return;
-		const due =
-			this.activity || this.status.waiting || this.now() - this.lastStoredAt >= UNCONDITIONAL_MS;
-		if (due) {
-			await this.runPull();
-		} else {
-			this.schedule(this.intervalMs());
-		}
+		await this.runPull();
 	}
 
 	async runPull() {
 		this.pulling = true;
-		this.activity = false;
 		this.status.lastAttemptAt = this.now();
 		let result;
 		try {
@@ -139,21 +148,22 @@ export class CheckpointRunner {
 			result = { outcome: 'unreachable', message: error.message };
 		}
 		this.pulling = false;
-		if (!this.started) return;
-
 		if (result.outcome === 'stored') {
-			this.lastStoredAt = this.now();
 			this.status.lastCheckpoint = result.name;
-			this.status.lastCheckpointAt = this.lastStoredAt;
+			this.status.lastCheckpointAt = this.now();
 			this.status.lastError = null;
 			this.status.waiting = false;
-			this.schedule(this.intervalMs());
-		} else if (result.outcome === 'refused') {
-			this.status.lastError = result.message;
-			this.stop();
-			return;
 		} else {
 			this.status.lastError = result.message;
+		}
+		if (!this.started) return result;
+
+		if (result.outcome === 'stored') {
+			this.schedule(this.intervalMs());
+		} else if (result.outcome === 'refused') {
+			this.stop();
+			return result;
+		} else {
 			this.status.waiting = true;
 			this.schedule(RETRY_MS);
 		}
@@ -162,6 +172,7 @@ export class CheckpointRunner {
 			this.again = false;
 			await this.pullNow();
 		}
+		return result;
 	}
 
 	schedule(delayMs) {

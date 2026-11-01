@@ -1,5 +1,5 @@
 /**
- * Recovery checkpoints: storage and transfer, without scheduling or hub access.
+ * Checkpoints: storage and transfer, without scheduling or hub access.
  *
  * A checkpoint folder is a ready image of the competition (see OWLCMS compliance/150):
  *   <folder>/database_v2_<stamp>.json   latest export only
@@ -143,9 +143,9 @@ function networkError(error) {
 	return code ? `cannot reach OWLCMS (${code})` : cause?.message || error.message;
 }
 
-export function backupUrl(owlcmsUrl, since) {
+export function checkpointUrl(owlcmsUrl, since) {
 	const base = owlcmsUrl.includes('://') ? owlcmsUrl : `http://${owlcmsUrl}`;
-	const url = new URL('/competition/backup', base);
+	const url = new URL('/competition/checkpoint', base);
 	if (since) url.searchParams.set('since', since);
 	return url;
 }
@@ -166,7 +166,7 @@ export function backupUrl(owlcmsUrl, since) {
  *   | { outcome: 'refused', status: number, message: string }>}
  */
 export async function pullCheckpoint({ owlcmsUrl, secret, folder, fetchImpl = fetch, timeoutMs = 120000 }) {
-	const url = backupUrl(owlcmsUrl, newestCheckpoint(folder));
+	const url = checkpointUrl(owlcmsUrl, newestCheckpoint(folder));
 	const headers = secret ? { Authorization: `Bearer ${secret}` } : {};
 
 	let response;

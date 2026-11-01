@@ -1,8 +1,8 @@
 /**
- * Recovery Checkpoints - server side.
+ * Checkpoints - server side.
  *
- * Pulls checkpoints from OWLCMS (/competition/backup) into a checkpoint folder while started. The page drives it
- * through actions: status, save, start, stop, browse, mkdir. Settings and the started state are kept in this
+ * Pulls checkpoints from OWLCMS (/competition/checkpoint) into a checkpoint folder while started. The page drives it
+ * through actions: status, save, start, stop, checkpoint, browse, mkdir. Settings and the started state are kept in this
  * plugin's config-override.json5, so a tracker restart resumes polling if it was started.
  */
 
@@ -16,7 +16,7 @@ import { CheckpointRunner } from './checkpoint-runner.js';
 
 const TAG = '[Checkpoints]';
 const SETTINGS_KEYS = ['owlcmsUrl', 'secret', 'folder', 'intervalMinutes', 'started'];
-const STATE_PATH = resolve(process.cwd(), 'src/plugins/backup/checkpoints/config-override.json5');
+const STATE_PATH = resolve(process.cwd(), 'src/plugins/checkpoints/config-override.json5');
 
 function isFolder(path) {
 	try {
@@ -44,7 +44,7 @@ function loadSaved() {
 function save(runner) {
 	const values = { ...runner.settings, started: runner.started };
 	const payload = { options: SETTINGS_KEYS.map((key) => ({ key, default: values[key] })) };
-	const header = '// Recovery Checkpoints settings, written by the plugin page. JSON5.\n';
+	const header = '// Checkpoints settings, written by the plugin page. JSON5.\n';
 	try {
 		mkdirSync(dirname(STATE_PATH), { recursive: true });
 		writeFileSync(STATE_PATH, `${header}${JSON.stringify(payload, null, 2)}\n`, 'utf8');
@@ -79,13 +79,10 @@ function createRunner() {
 
 // Hub listeners, registered again if the hub was recreated (the OBS plugin does the same).
 const onDatabase = () => runner.databaseReceived();
-const onActivity = () => runner.noteActivity();
 
 function ensureListeners() {
 	if (!competitionHub.listeners('database:received').includes(onDatabase)) {
 		competitionHub.on('database:received', onDatabase);
-		competitionHub.on('decision', onActivity);
-		competitionHub.on('fop_update', onActivity);
 	}
 }
 
@@ -126,6 +123,10 @@ export async function handleAction({ action, options = {} }) {
 		case 'stop':
 			runner.stop();
 			return status();
+		case 'checkpoint': {
+			const result = await runner.requestCheckpoint(isFolder);
+			return result.success ? { ...status(), name: result.name } : result;
+		}
 		case 'browse': {
 			const requested = options.path || homedir();
 			const path = isFolder(requested) ? requested : homedir();

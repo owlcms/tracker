@@ -25,7 +25,7 @@ src/plugins/custom/*
 !src/plugins/custom/README.txt
 src/plugins/celebrations/config-override.json5
 # holds the OWLCMS secret
-src/plugins/backup/checkpoints/config-override.json5
+src/plugins/checkpoints/config-override.json5
 
 # Note: extensions/ now contains git submodules (e.g., tracker-France)
 # Submodules are tracked by git even though their contents are from other repos

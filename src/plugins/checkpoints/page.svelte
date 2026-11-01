@@ -1,5 +1,5 @@
 <!--
-  Recovery Checkpoints: settings, folder picker, Start/Stop and status.
+  Checkpoints: settings, folder picker, Start/Stop and status.
   Everything runs on the tracker server; this page only calls the plugin's actions.
 -->
 <script>
@@ -67,6 +67,22 @@
 		}
 	}
 
+	async function checkpointNow() {
+		busy = true;
+		message = 'Taking a checkpoint…';
+		messageIsError = false;
+		try {
+			if (!started) {
+				const saved = await saveSettings();
+				if (!saved?.success) return show(saved);
+			}
+			const result = await act('checkpoint');
+			show(result, result?.success ? `Checkpoint ${result.name} stored.` : '');
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function stop() {
 		busy = true;
 		try {
@@ -125,7 +141,7 @@
 <div class="checkpoints">
 <div class="content">
 	<header>
-		<h1>Recovery Checkpoints</h1>
+		<h1>Checkpoints</h1>
 		<span class="badge" class:running={started} class:waiting={started && status?.waiting}>
 			{#if !started}Stopped{:else if status?.waiting}Waiting for OWLCMS{:else}Started{/if}
 		</span>
@@ -176,8 +192,9 @@
 	</section>
 
 	<section class="controls">
-		<button class="primary" on:click={start} disabled={busy || started}>Start</button>
-		<button on:click={stop} disabled={busy || !started}>Stop</button>
+		<button class:primary={!started} on:click={start} disabled={busy || started}>Start</button>
+		<button class:primary={started} on:click={stop} disabled={busy || !started}>Stop</button>
+		<button on:click={checkpointNow} disabled={busy || status?.pulling}>Checkpoint now</button>
 		{#if message}<span class:error={messageIsError}>{message}</span>{/if}
 	</section>
 

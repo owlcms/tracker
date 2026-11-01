@@ -10,7 +10,7 @@ export const DEFAULT_LANDING_PAGE_CATEGORIES = [
 	{ category: 'documents', title: 'Documents' },
 	{ category: 'remote-control', title: 'Remote Control' },
 	{ category: 'video-overlay', title: 'Video Overlays' },
-	{ category: 'backup', title: 'Backup and Recovery' }
+	{ category: 'checkpoints', title: 'Checkpoints' }
 ];
 
 const CATEGORY_OVERRIDE_PATHS = [

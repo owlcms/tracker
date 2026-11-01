@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CheckpointRunner, RETRY_MS, UNCONDITIONAL_MS } from '../checkpoint-runner.js';
+import { CheckpointRunner, RETRY_MS } from '../checkpoint-runner.js';
 
 /** A runner with a fake clock and timers; pulls answer from a queue of outcomes. */
 function harness(outcomes = []) {
@@ -66,24 +66,18 @@ describe('checkpoint runner', () => {
 		expect(h.runner.started).toBe(false);
 	});
 
-	it('at each interval pulls only after activity, and at least every 30 minutes', async () => {
+	it('pulls at every interval, whatever the hub has seen', async () => {
 		const h = harness();
 		h.runner.start(exists);
 		await flush();
-
-		await h.next();
 		expect(h.pulls).toHaveLength(1);
 
-		h.runner.noteActivity();
-		await h.next();
-		expect(h.pulls).toHaveLength(2);
-
-		let quiet = 0;
-		while (h.pulls.length === 2) {
-			await h.next();
-			quiet++;
+		for (let i = 2; i <= 4; i++) {
+			const timer = await h.next();
+			expect(h.pulls).toHaveLength(i);
+			expect(timer.at - h.runner.status.lastCheckpointAt).toBe(0);
+			expect(h.runner.status.nextPullAt - timer.at).toBe(5 * 60_000);
 		}
-		expect(quiet).toBe(UNCONDITIONAL_MS / (5 * 60_000));
 	});
 
 	it('pulls right away when OWLCMS sends its database', async () => {
@@ -124,6 +118,44 @@ describe('checkpoint runner', () => {
 		expect(h.pending()).toBe(0);
 		expect(h.runner.snapshot().lastError).toBe('wrong secret');
 		expect(h.persisted.at(-1).started).toBe(false);
+	});
+
+	it('takes one checkpoint on request while stopped, without starting polling', async () => {
+		const h = harness();
+		expect(await h.runner.requestCheckpoint(exists)).toEqual({ success: true, name: 'n1' });
+		expect(h.runner.started).toBe(false);
+		expect(h.pending()).toBe(0);
+		expect(h.runner.snapshot().lastCheckpoint).toBe('n1');
+
+		const refused = harness([{ outcome: 'refused', status: 401, message: 'wrong secret' }]);
+		expect(await refused.runner.requestCheckpoint(exists)).toEqual({ success: false, message: 'wrong secret' });
+		expect(refused.runner.snapshot().lastError).toBe('wrong secret');
+		expect(await refused.runner.requestCheckpoint(() => false)).toMatchObject({ success: false });
+	});
+
+	it('takes one checkpoint on request while started and restarts the interval', async () => {
+		const h = harness();
+		h.runner.start(exists);
+		await flush();
+		h.advance(2 * 60_000);
+		expect(await h.runner.requestCheckpoint(exists)).toEqual({ success: true, name: 'n2' });
+		expect(h.runner.started).toBe(true);
+		expect(h.pending()).toBe(1);
+		expect(h.runner.status.nextPullAt - h.runner.status.lastCheckpointAt).toBe(5 * 60_000);
+	});
+
+	it('refuses a requested checkpoint while another is being taken', async () => {
+		let release;
+		const runner = new CheckpointRunner({
+			pull: () => new Promise((resolve) => (release = resolve)),
+			setTimer: () => null,
+			clearTimer: () => {}
+		});
+		runner.configure({ owlcmsUrl: 'http://x', folder: '/f' });
+		const first = runner.requestCheckpoint(exists);
+		expect(await runner.requestCheckpoint(exists)).toMatchObject({ success: false });
+		release({ outcome: 'stored', name: 'n1' });
+		expect(await first).toEqual({ success: true, name: 'n1' });
 	});
 
 	it('locks the settings while started, keeps the secret when left blank, and persists Start and Stop', () => {
