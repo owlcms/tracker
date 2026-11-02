@@ -8,10 +8,12 @@
  */
 
 import AdmZip from 'adm-zip';
-import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, parse, resolve, sep } from 'node:path';
 
 export const ZIPS_DIR = 'zips';
+const PENDING_DIR = '.pending';
+const PART_SUFFIX = '.part';
 
 /** OWLCMS names checkpoints with its UTC time, colon-free: 2026-10-31T20-37-42.123Z.zip */
 const CHECKPOINT_NAME = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.\d{3}Z\.zip$/;
@@ -58,21 +60,10 @@ function isSafeEntryName(name) {
 	return !name.split('/').some((segment) => segment === '..');
 }
 
-/**
- * Checks a received checkpoint before anything is written.
- *
- * @returns {{ ok: true, zip: AdmZip, exports: string[] } | { ok: false, reason: string }}
- */
-export function inspectCheckpoint(buffer) {
+function inspectEntries(zip) {
 	let entries;
-	let zip;
 	try {
-		zip = new AdmZip(buffer);
 		entries = zip.getEntries();
-		// reading every entry catches a zip truncated after its central directory was parsed
-		for (const entry of entries) {
-			if (!entry.isDirectory) entry.getData();
-		}
 	} catch (error) {
 		return { ok: false, reason: `not a complete zip: ${error.message}` };
 	}
@@ -86,7 +77,32 @@ export function inspectCheckpoint(buffer) {
 	if (exports.length === 0) {
 		return { ok: false, reason: 'no export (.json) in the checkpoint' };
 	}
-	return { ok: true, zip, exports };
+	return { ok: true, entries, exports };
+}
+
+/**
+ * Checks a received checkpoint before anything is written.
+ *
+ * @returns {{ ok: true, zip: AdmZip, exports: string[] } | { ok: false, reason: string }}
+ */
+export function inspectCheckpoint(buffer) {
+	let zip;
+	try {
+		zip = new AdmZip(buffer);
+	} catch (error) {
+		return { ok: false, reason: `not a complete zip: ${error.message}` };
+	}
+	const inspected = inspectEntries(zip);
+	if (!inspected.ok) return inspected;
+	try {
+		// reading every entry catches a zip truncated after its central directory was parsed
+		for (const entry of inspected.entries) {
+			if (!entry.isDirectory) entry.getData();
+		}
+	} catch (error) {
+		return { ok: false, reason: `not a complete zip: ${error.message}` };
+	}
+	return { ok: true, zip, exports: inspected.exports };
 }
 
 /** Writes through a temporary name that does not end in .json or .zip, then renames. */
@@ -97,29 +113,173 @@ function writeAtomically(target, data) {
 	renameSync(temporary, target);
 }
 
-/**
- * Stores a checked checkpoint: the zip into zips/ under the name OWLCMS sent, then unpacked over the folder.
- * Older exports are removed so the folder keeps a single .json, the latest.
- */
-export function storeCheckpoint(folder, name, buffer, inspected) {
+function pendingArchiveName(file) {
+	if (!file.endsWith(PART_SUFFIX)) return null;
+	const name = file.slice(0, -PART_SUFFIX.length);
+	return isCheckpointName(name) ? name : null;
+}
+
+function pendingArchives(folder) {
+	const dir = join(folder, ZIPS_DIR);
+	if (!existsSync(dir)) return [];
+	return readdirSync(dir)
+		.map((file) => ({ file, name: pendingArchiveName(file) }))
+		.filter(({ name }) => name !== null)
+		.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function removeIfEmpty(path) {
+	if (existsSync(path) && readdirSync(path).length === 0) {
+		rmSync(path, { recursive: true });
+	}
+}
+
+function pendingDirectory(root) {
+	return join(root, ZIPS_DIR, PENDING_DIR);
+}
+
+function discardPending(root, partPath) {
+	rmSync(pendingDirectory(root), { recursive: true, force: true });
+	rmSync(partPath, { force: true });
+	removeIfEmpty(join(root, ZIPS_DIR));
+}
+
+function stageArchive(root, buffer) {
+	let zip;
+	try {
+		zip = new AdmZip(buffer);
+	} catch (error) {
+		return { outcome: 'invalid', message: `not a complete zip: ${error.message}` };
+	}
+	const inspected = inspectEntries(zip);
+	if (!inspected.ok) {
+		return { outcome: 'invalid', message: inspected.reason };
+	}
+
+	const pending = pendingDirectory(root);
+	rmSync(pending, { recursive: true, force: true });
+	try {
+		for (const entry of inspected.entries) {
+			if (entry.isDirectory) continue;
+			let data;
+			try {
+				data = entry.getData();
+			} catch (error) {
+				rmSync(pending, { recursive: true, force: true });
+				return { outcome: 'invalid', message: `not a complete zip: ${error.message}` };
+			}
+			writeAtomically(resolve(pending, entry.entryName), data);
+		}
+	} catch (error) {
+		rmSync(pending, { recursive: true, force: true });
+		return { outcome: 'local-error', message: `cannot extract the checkpoint: ${error.message}` };
+	}
+	return {
+		outcome: 'staged',
+		exports: inspected.exports,
+		files: [...new Set(inspected.entries.filter((entry) => !entry.isDirectory).map((entry) => entry.entryName))]
+	};
+}
+
+function moveStagedFile(root, name) {
+	const pending = resolve(pendingDirectory(root));
+	const source = resolve(pending, name);
+	const target = resolve(root, name);
+	if (!source.startsWith(pending + sep) || !target.startsWith(root + sep)) {
+		throw new Error(`entry outside the checkpoint: ${name}`);
+	}
+	mkdirSync(dirname(target), { recursive: true });
+	renameSync(source, target);
+}
+
+function completePendingArchive(folder, name, partPath, buffer = null) {
+	const root = resolve(folder);
+	const finalPath = join(root, ZIPS_DIR, name);
+	if (existsSync(finalPath)) {
+		discardPending(root, partPath);
+		return { outcome: 'stored', name, bytes: statSync(finalPath).size, recovered: true };
+	}
+
+	let archive;
+	try {
+		archive = buffer ?? readFileSync(partPath);
+	} catch (error) {
+		return { outcome: 'local-error', message: `cannot read pending checkpoint ${name}: ${error.message}` };
+	}
+	const staged = stageArchive(root, archive);
+	if (staged.outcome === 'invalid') {
+		discardPending(root, partPath);
+		return { outcome: 'discarded', message: `discarded incomplete checkpoint ${name}: ${staged.message}` };
+	}
+	if (staged.outcome === 'local-error') {
+		return staged;
+	}
+
+	try {
+		// Publish the database first. It remains usable even if merging the logs fails.
+		for (const file of staged.exports) {
+			moveStagedFile(root, file);
+		}
+		for (const file of staged.files) {
+			if (!staged.exports.includes(file)) {
+				moveStagedFile(root, file);
+			}
+		}
+		// Cleanup is deliberately last: until this succeeds, both the old and new databases remain loadable.
+		for (const file of readdirSync(root)) {
+			if (file.endsWith('.json') && !staged.exports.includes(file) && statSync(join(root, file)).isFile()) {
+				rmSync(join(root, file));
+			}
+		}
+		rmSync(pendingDirectory(root), { recursive: true });
+		const bytes = statSync(partPath).size;
+		renameSync(partPath, finalPath);
+		return { outcome: 'stored', name, bytes, recovered: buffer === null };
+	} catch (error) {
+		rmSync(pendingDirectory(root), { recursive: true, force: true });
+		return { outcome: 'local-error', message: `cannot apply checkpoint ${name}: ${error.message}` };
+	}
+}
+
+/** Stores and applies a checkpoint, leaving its cursor unfinished until the complete image has been updated. */
+export function storeCheckpoint(folder, name, buffer) {
 	if (!isCheckpointName(name)) {
-		throw new Error(`unexpected checkpoint name: ${name}`);
+		return { outcome: 'discarded', message: `unexpected checkpoint name: ${name}` };
 	}
 	const root = resolve(folder);
-	writeAtomically(join(root, ZIPS_DIR, name), buffer);
-	for (const entry of inspected.zip.getEntries()) {
-		if (entry.isDirectory) continue;
-		const target = resolve(root, entry.entryName);
-		if (!target.startsWith(root + sep)) {
-			throw new Error(`entry outside the checkpoint: ${entry.entryName}`);
-		}
-		writeAtomically(target, entry.getData());
+	const partPath = join(root, ZIPS_DIR, `${name}${PART_SUFFIX}`);
+	try {
+		mkdirSync(dirname(partPath), { recursive: true });
+		writeFileSync(partPath, buffer);
+	} catch (error) {
+		rmSync(partPath, { force: true });
+		removeIfEmpty(join(root, ZIPS_DIR));
+		return { outcome: 'local-error', message: `cannot save checkpoint ${name}: ${error.message}` };
 	}
-	for (const file of readdirSync(root)) {
-		if (file.endsWith('.json') && !inspected.exports.includes(file) && statSync(join(root, file)).isFile()) {
-			rmSync(join(root, file));
+	return completePendingArchive(root, name, partPath, buffer);
+}
+
+/**
+ * Finishes checkpoints interrupted before their .part archive was marked complete.
+ * A corrupt archive is discarded; a local filesystem failure is retained for another retry.
+ */
+export function recoverPendingCheckpoints(folder) {
+	if (!folder || !existsSync(folder)) return { outcome: 'none' };
+	let recovered = null;
+	const discarded = [];
+	for (const pending of pendingArchives(folder)) {
+		const result = completePendingArchive(folder, pending.name, join(folder, ZIPS_DIR, pending.file));
+		if (result.outcome === 'local-error') return result;
+		if (result.outcome === 'discarded') {
+			discarded.push(result.message);
+		} else if (result.outcome === 'stored') {
+			recovered = result;
 		}
 	}
+	if (recovered) return recovered;
+	if (discarded.length > 0) return { outcome: 'discarded', message: discarded.join('; ') };
+	rmSync(pendingDirectory(resolve(folder)), { recursive: true, force: true });
+	return { outcome: 'none' };
 }
 
 function refusalMessage(status) {
@@ -163,9 +323,15 @@ export function checkpointUrl(owlcmsUrl, since) {
  * @param {string} p.folder     checkpoint folder
  * @returns {Promise<{ outcome: 'stored', name: string, bytes: number }
  *   | { outcome: 'unreachable', message: string }
+ *   | { outcome: 'local-error', message: string }
  *   | { outcome: 'refused', status: number, message: string }>}
  */
 export async function pullCheckpoint({ owlcmsUrl, secret, folder, fetchImpl = fetch, timeoutMs = 120000 }) {
+	const recovered = recoverPendingCheckpoints(folder);
+	if (recovered.outcome === 'stored' || recovered.outcome === 'local-error') {
+		return recovered;
+	}
+
 	const url = checkpointUrl(owlcmsUrl, newestCheckpoint(folder));
 	const headers = secret ? { Authorization: `Bearer ${secret}` } : {};
 
@@ -194,12 +360,11 @@ export async function pullCheckpoint({ owlcmsUrl, secret, folder, fetchImpl = fe
 	if (!isCheckpointName(name)) {
 		return { outcome: 'unreachable', message: `unexpected checkpoint name: ${name}` };
 	}
-	const inspected = inspectCheckpoint(buffer);
-	if (!inspected.ok) {
-		return { outcome: 'unreachable', message: inspected.reason };
+	const stored = storeCheckpoint(folder, name, buffer);
+	if (stored.outcome === 'discarded') {
+		return { outcome: 'unreachable', message: stored.message };
 	}
-	storeCheckpoint(folder, name, buffer, inspected);
-	return { outcome: 'stored', name, bytes: buffer.length };
+	return stored;
 }
 
 /** @returns the sub-folders of a folder, for the folder picker; hidden folders are left out */

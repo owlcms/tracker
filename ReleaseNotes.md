@@ -5,6 +5,7 @@
 
 ## 3.0
 
+- 3.0.0-beta02: New Checkpoints page: periodically copies the current competition database and changed logs from OWLCMS 69 into a recovery folder. Checkpoint updates are extracted once into a temporary folder; the newest database is made available first, while the checkpoint cursor advances only after the logs are merged and older databases are cleaned up.
 - 3.0.0-beta01: **Requires OWLCMS 69.** The tracker now uses tracker-core 2.0, which only accepts protocol 69.0.0 or later. OWLCMS 66, 67 and 68 send protocol 64.0.0: the tracker shows a "Protocol Version Mismatch" message on its home page and ignores their data. Update OWLCMS and the tracker together.
 - 3.0.0-beta01: Attempt board shows the referee lights, the jury votes and the jury decision as the OWLCMS attempt board does (options `showJuryVotes` and `juryCardSeconds`).
 - 3.0.0-beta01: Attempt board: referee lights are rectangles as on the OWLCMS attempt board. A jury or panel review shows the jury votes, then a jury card with the final decision ("New Record!" instead of "Good Lift" when a record was set). The team name and the athlete picture stay visible during decisions.

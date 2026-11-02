@@ -110,6 +110,22 @@ describe('checkpoint runner', () => {
 		expect(h.runner.status.nextPullAt - h.runner.status.lastAttemptAt).toBe(5 * 60_000);
 	});
 
+	it('retries checkpoint folder errors without reporting that it is waiting for OWLCMS', async () => {
+		const h = harness([{ outcome: 'local-error', message: 'cannot apply checkpoint: disk full' }]);
+		h.runner.start(exists);
+		await flush();
+		expect(h.runner.snapshot()).toMatchObject({
+			waiting: false,
+			folderError: true,
+			lastError: 'cannot apply checkpoint: disk full'
+		});
+
+		const firstAttempt = h.runner.status.lastAttemptAt;
+		const retry = await h.next();
+		expect(retry.at - firstAttempt).toBe(RETRY_MS);
+		expect(h.runner.snapshot()).toMatchObject({ waiting: false, folderError: false, lastCheckpoint: 'n2' });
+	});
+
 	it('stops on a refusal instead of retrying, and keeps the error visible', async () => {
 		const h = harness([{ outcome: 'refused', status: 401, message: 'wrong secret' }]);
 		h.runner.start(exists);

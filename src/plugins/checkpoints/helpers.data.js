@@ -11,7 +11,7 @@ import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import JSON5 from 'json5';
 import { competitionHub } from '$lib/server/competition-hub.js';
-import { createFolder, folderSummary, listFolders, pullCheckpoint } from './checkpoint-core.js';
+import { createFolder, folderSummary, listFolders, pullCheckpoint, recoverPendingCheckpoints } from './checkpoint-core.js';
 import { CheckpointRunner } from './checkpoint-runner.js';
 
 const TAG = '[Checkpoints]';
@@ -74,6 +74,16 @@ function createRunner() {
 		...Object.fromEntries(Object.entries(saved).filter(([key, value]) => key !== 'started' && value != null))
 	};
 	created.started = saved.started === true;
+	const recovered = recoverPendingCheckpoints(created.settings.folder);
+	if (recovered.outcome === 'stored') {
+		created.status.lastCheckpoint = recovered.name;
+		created.status.lastCheckpointAt = Date.now();
+		console.log(`${TAG} completed pending checkpoint ${recovered.name}`);
+	} else if (recovered.outcome === 'local-error' || recovered.outcome === 'discarded') {
+		created.status.lastError = recovered.message;
+		created.status.folderError = recovered.outcome === 'local-error';
+		console.warn(`${TAG} ${recovered.message}`);
+	}
 	return created;
 }
 

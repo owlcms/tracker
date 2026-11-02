@@ -2,7 +2,7 @@
  * Checkpoints
  *
  * Pulls checkpoints (export + logs) from OWLCMS into a folder on the tracker machine. The folder can be used to start
- * OWLCMS on another machine. See OWLCMS compliance/150-SCHEDULED_CHECKPOINTS.md.
+ * OWLCMS on another machine. See OWLCMS compliance/done/150-SCHEDULED_CHECKPOINTS.md.
  */
 
 export default {

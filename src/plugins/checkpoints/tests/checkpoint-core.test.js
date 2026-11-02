@@ -13,7 +13,8 @@ import {
 	isValidFolderName,
 	listFolders,
 	newestCheckpoint,
-	pullCheckpoint
+	pullCheckpoint,
+	recoverPendingCheckpoints
 } from '../checkpoint-core.js';
 
 const FIRST = '2026-11-01T12-30-44.783Z.zip';
@@ -89,6 +90,97 @@ describe('checkpoint core', () => {
 		expect(folderSummary(folder)).toEqual({ exists: true, zipCount: 2, newest: SECOND });
 		const leftovers = readdirSync(folder, { recursive: true }).filter((name) => String(name).endsWith('.part'));
 		expect(leftovers).toEqual([]);
+	});
+
+	it('publishes the new database first but advances the cursor only after the logs and cleanup succeed', async () => {
+		const oldDatabase = 'database_v2_2026-11-01_07h30.json';
+		const newDatabase = 'database_v2_2026-11-01_07h31.json';
+		const first = checkpointZip({
+			[oldDatabase]: '{"v":1}',
+			'logs/unchanged.log': 'keep me'
+		});
+		const second = checkpointZip({
+			[newDatabase]: '{"v":2}',
+			'logs/blocked.log': 'updated',
+			'logs/new.log': 'new'
+		});
+		await pullCheckpoint({
+			owlcmsUrl: 'http://x',
+			folder,
+			fetchImpl: async () => okResponse(first, FIRST)
+		});
+
+		mkdirSync(join(folder, 'logs', 'blocked.log'));
+		const failed = await pullCheckpoint({
+			owlcmsUrl: 'http://x',
+			folder,
+			fetchImpl: async () => okResponse(second, SECOND)
+		});
+
+		expect(failed.outcome).toBe('local-error');
+		expect(readFileSync(join(folder, newDatabase), 'utf8')).toBe('{"v":2}');
+		expect(readFileSync(join(folder, oldDatabase), 'utf8')).toBe('{"v":1}');
+		expect(newestCheckpoint(folder)).toBe(FIRST);
+		expect(readdirSync(join(folder, 'zips')).sort()).toEqual([FIRST, `${SECOND}.part`].sort());
+
+		rmSync(join(folder, 'logs', 'blocked.log'), { recursive: true });
+		let requests = 0;
+		const recovered = await pullCheckpoint({
+			owlcmsUrl: 'http://x',
+			folder,
+			fetchImpl: async () => {
+				requests += 1;
+				throw new Error('recovery must not make a network request');
+			}
+		});
+
+		expect(recovered).toMatchObject({ outcome: 'stored', name: SECOND, recovered: true });
+		expect(requests).toBe(0);
+		expect(newestCheckpoint(folder)).toBe(SECOND);
+		expect(existsSync(join(folder, oldDatabase))).toBe(false);
+		expect(readFileSync(join(folder, 'logs', 'blocked.log'), 'utf8')).toBe('updated');
+		expect(readFileSync(join(folder, 'logs', 'new.log'), 'utf8')).toBe('new');
+		expect(readFileSync(join(folder, 'logs', 'unchanged.log'), 'utf8')).toBe('keep me');
+		expect(existsSync(join(folder, 'zips', '.pending'))).toBe(false);
+	});
+
+	it('discards a corrupt pending archive and requests its replacement from the last completed cursor', async () => {
+		const first = checkpointZip({ 'database_v2_old.json': '{"v":1}' });
+		const second = checkpointZip({ 'database_v2_new.json': '{"v":2}' });
+		await pullCheckpoint({
+			owlcmsUrl: 'http://x',
+			folder,
+			fetchImpl: async () => okResponse(first, FIRST)
+		});
+		writeFileSync(join(folder, 'zips', `${SECOND}.part`), 'not a zip');
+
+		let requested;
+		const result = await pullCheckpoint({
+			owlcmsUrl: 'http://x',
+			folder,
+			fetchImpl: async (url) => {
+				requested = String(url);
+				return okResponse(second, SECOND);
+			}
+		});
+
+		expect(result).toMatchObject({ outcome: 'stored', name: SECOND });
+		expect(requested).toBe(`http://x/competition/checkpoint?since=${encodeURIComponent(FIRST)}`);
+		expect(readdirSync(join(folder, 'zips')).sort()).toEqual([FIRST, SECOND].sort());
+	});
+
+	it('recovers a pending archive without polling, including while checkpoints are stopped', () => {
+		const database = 'database_v2_pending.json';
+		mkdirSync(join(folder, 'zips'));
+		writeFileSync(join(folder, 'zips', `${FIRST}.part`), checkpointZip({
+			[database]: '{"v":1}',
+			'logs/owlcms.log': 'complete'
+		}));
+
+		expect(recoverPendingCheckpoints(folder)).toMatchObject({ outcome: 'stored', name: FIRST, recovered: true });
+		expect(readFileSync(join(folder, database), 'utf8')).toBe('{"v":1}');
+		expect(readFileSync(join(folder, 'logs', 'owlcms.log'), 'utf8')).toBe('complete');
+		expect(newestCheckpoint(folder)).toBe(FIRST);
 	});
 
 	it('classifies refusals, which are not retried, apart from failures to reach OWLCMS', async () => {

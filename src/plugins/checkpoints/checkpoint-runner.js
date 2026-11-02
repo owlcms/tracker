@@ -35,7 +35,8 @@ export class CheckpointRunner {
 			lastAttemptAt: null,
 			nextPullAt: null,
 			lastError: null,
-			waiting: false
+			waiting: false,
+			folderError: false
 		};
 	}
 
@@ -82,6 +83,7 @@ export class CheckpointRunner {
 		this.started = true;
 		this.status.lastError = null;
 		this.status.waiting = false;
+		this.status.folderError = false;
 		this.persist(this);
 		this.pullNow();
 		return { success: true };
@@ -153,8 +155,11 @@ export class CheckpointRunner {
 			this.status.lastCheckpointAt = this.now();
 			this.status.lastError = null;
 			this.status.waiting = false;
+			this.status.folderError = false;
 		} else {
 			this.status.lastError = result.message;
+			this.status.waiting = result.outcome === 'unreachable';
+			this.status.folderError = result.outcome === 'local-error';
 		}
 		if (!this.started) return result;
 
@@ -164,7 +169,6 @@ export class CheckpointRunner {
 			this.stop();
 			return result;
 		} else {
-			this.status.waiting = true;
 			this.schedule(RETRY_MS);
 		}
 

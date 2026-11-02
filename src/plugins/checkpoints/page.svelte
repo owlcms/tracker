@@ -142,8 +142,13 @@
 <div class="content">
 	<header>
 		<h1>Checkpoints</h1>
-		<span class="badge" class:running={started} class:waiting={started && status?.waiting}>
-			{#if !started}Stopped{:else if status?.waiting}Waiting for OWLCMS{:else}Started{/if}
+		<span
+			class="badge"
+			class:running={started}
+			class:waiting={started && status?.waiting}
+			class:folder-error={started && status?.folderError}
+		>
+			{#if !started}Stopped{:else if status?.folderError}Checkpoint folder error{:else if status?.waiting}Waiting for OWLCMS{:else}Started{/if}
 		</span>
 	</header>
 
@@ -427,6 +432,11 @@
 	.badge.waiting {
 		border-color: #ecc94b;
 		color: #faf089;
+	}
+
+	.badge.folder-error {
+		border-color: #fc8181;
+		color: #feb2b2;
 	}
 
 	dl {
