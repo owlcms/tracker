@@ -10,7 +10,7 @@ export default {
 			label: 'OWLCMS Scoreboard URL',
 			type: 'text',
 			default: '',
-			description: 'Required full URL of the OWLCMS Vaadin scoreboard to embed in the full-frame iframe.'
+			description: 'Required. OWLCMS Vaadin scoreboard to embed in the full-frame iframe: a path such as /displays/scoreboard?fop=A&token=... (shown through the tracker proxy, recommended) or a full http(s) URL.'
 		},
 		{
 			key: 'localVideoDirectory',

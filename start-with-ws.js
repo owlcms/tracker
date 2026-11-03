@@ -90,6 +90,15 @@ process.on('unhandledRejection', (reason, promise) => {
       handler(req, res);
     });
 
+    // Vaadin push WebSocket upgrades for /proxy go through the same-origin gate
+    if (proxyMiddleware) {
+      httpServer.on('upgrade', (req, socket, head) => {
+        if (req.url?.startsWith('/proxy')) {
+          proxyMiddleware.upgrade(req, socket, head);
+        }
+      });
+    }
+
     // Attach WebSocket server for OWLCMS connections
     try {
       const { initializeWebSocketServer } = await import('./build/lib/server/initialize-server.js');

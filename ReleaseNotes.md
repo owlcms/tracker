@@ -5,6 +5,8 @@
 
 ## 3.0
 
+- 3.0.0-beta02: Security: the `/proxy` route to OWLCMS only forwards to the configured OWLCMS address (the `_target` parameter is removed) and only serves the tracker's own pages (such as the celebrations frame); opening `/proxy/...` directly or from another site is refused. Celebrations: the scoreboard option accepts an OWLCMS path such as `/displays/scoreboard?fop=A&token=...`, shown through the proxy.
+- 3.0.0-beta02: The OWLCMS proxy follows the OWLCMS connection's address and advertised HTTP port automatically. `OWLCMS_URL` in the Tracker environment overrides it when the connection address cannot be used to reach OWLCMS.
 - 3.0.0-beta02: Attempt board: plates, collars and bar follow the changes made on the OWLCMS technical controller page. The tracker uses the equipment and the bar selected by OWLCMS (requires OWLCMS 69.0.0-beta03).
 - 3.0.0-beta02: Attempt board: new `threeDPlates` option (on by default) shows the bar and plates in 3D, as on the OWLCMS attempt board with the `3DattemptBoard` feature switch. The `platesGallery` option shows all plate loadings and bar colors for checking the display.
 - 3.0.0-beta02: Attempt board: the team flag has a thin white border, as on the OWLCMS attempt board.

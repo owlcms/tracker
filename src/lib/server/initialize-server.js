@@ -11,6 +11,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { competitionHub } from './competition-hub.js';
+import { updateOwlcmsTargetFromConnection } from './owlcms-proxy.js';
 import { attachWebSocketToServer } from '@owlcms/tracker-core/websocket';
 import { logger } from '@owlcms/tracker-core';
 
@@ -40,6 +41,12 @@ export async function initializeWebSocketServer(httpServer) {
       localFilesDir: path.join(process.cwd(), 'local'),
       localUrlPrefix: '/local',
       onConnect: () => logger.info('[WebSocket] OWLCMS connected'),
+      onAuthenticatedConnection: (connectionInfo) => {
+        updateOwlcmsTargetFromConnection(connectionInfo);
+      },
+      onServerInfo: (serverInfo) => {
+        updateOwlcmsTargetFromConnection(serverInfo);
+      },
       onDisconnect: () => logger.info('[WebSocket] OWLCMS disconnected'),
       onError: (error) => logger.error('[WebSocket] Error:', error.message)
     });

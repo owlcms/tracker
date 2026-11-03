@@ -1,5 +1,6 @@
 <script>
 	import { onMount, tick } from 'svelte';
+	import { normalizeScoreboardUrl } from '$lib/celebrations-scoreboard-url.js';
 	import { resolveCelebrationVideoUrl, resolveVisibleDecisionVideo } from '$lib/celebrations-video-urls.js';
 
 	export let data = {};
@@ -10,18 +11,6 @@
 	let lastDecisionToken = null;
 	let lastDecisionTraceSignature = null;
 	let videoVisible = false;
-
-	function validScoreboardUrl(value) {
-		try {
-			const source = new URL(value);
-			if (source.protocol !== 'http:' && source.protocol !== 'https:') {
-				return '';
-			}
-			return source.toString();
-		} catch {
-			return '';
-		}
-	}
 
 	function videoUrlFor(kind) {
 		return resolveCelebrationVideoUrl(kind, data.options, data.videoUrls);
@@ -137,7 +126,7 @@
 		hideVideo('video_error_hide');
 	}
 
-	$: iframeUrl = validScoreboardUrl(data.options?.scoreboardUrl || '');
+	$: iframeUrl = normalizeScoreboardUrl(data.options?.scoreboardUrl || '');
 	$: visibleDecisionVideo = resolveVisibleDecisionVideo(data.displayMode, data.decision);
 	$: visibleDecisionToken = decisionTokenFor(data.decision);
 	$: decisionTraceSignature = JSON.stringify([
