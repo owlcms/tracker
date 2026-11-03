@@ -227,6 +227,16 @@
 		outline: 1px dashed #262626;
 	}
 
+	/* The flat look is sized in em: scale it to the cell (12em plate height, about 16.5em for 255 kg). */
+	:is(.chart, .gallery-chart) :global(.plates-wrapper) {
+		container-type: size;
+		overflow: hidden;
+	}
+
+	:is(.chart, .gallery-chart) :global(.loadChart:not(.threeD)) {
+		font-size: min(7.6cqh, calc((100cqw - 4rem) / 16.5));
+	}
+
 	.gallery {
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
