@@ -30,6 +30,20 @@ export default {
 			description: 'Show barbell plate visualization'
 		},
 		{
+			key: 'threeDPlates',
+			label: '3D Plates',
+			type: 'boolean',
+			default: true,
+			description: 'Use 3D barbell and plate rendering'
+		},
+		{
+			key: 'platesGallery',
+			label: 'Plates Gallery',
+			type: 'boolean',
+			default: false,
+			description: 'Show interactive plate-loading gallery for testing weights and bar colors'
+		},
+		{
 			key: 'showTimer',
 			label: 'Show Timer',
 			type: 'boolean',

@@ -52,7 +52,8 @@ function calculatePlates(targetWeight, barWeight, platform) {
 	
 	// Check if we should use collar (2.5kg each side = 5kg total)
 	const collarAvailable = platform.nbC_2_5 || 0;
-	const useCollar = collarAvailable > 0 && remainingWeight >= 5;
+	const allowCollar = platform.useCollars !== undefined ? Boolean(platform.useCollars) : true;
+	const useCollar = allowCollar && collarAvailable > 0 && remainingWeight >= 5;
 	
 	if (useCollar) {
 		remainingWeight -= 5; // Reserve weight for collars
@@ -137,17 +138,10 @@ function calculatePlates(targetWeight, barWeight, platform) {
 	return plates;
 }
 
-/**
- * Get bar weight based on gender (20kg men, 15kg women)
- */
-function getBarWeight(gender, platform) {
-	// Check for non-standard bar first
-	if (platform?.nonStandardBarWeight && platform.nonStandardBarWeight > 0) {
-		return platform.nonStandardBarWeight;
-	}
-	// Standard bars: 20kg for men, 15kg for women
-	return gender === 'F' ? 15 : 20;
+function isTrue(value) {
+	return value === true || value === 'true';
 }
+
 
 /**
  * Board modes from OWLCMS (mutually exclusive):
@@ -291,6 +285,15 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 	const databaseState = getDatabaseState();
 	
 	const showPlates = isEnabledOption(options.showPlates);
+	const threeDPlates = options.threeDPlates !== undefined
+		? isEnabledOption(options.threeDPlates)
+		: options['3DattemptBoard'] !== undefined
+			? isEnabledOption(options['3DattemptBoard'])
+			: isEnabledOption(options.threeD ?? true);
+	const platesGallery = options.platesGallery === true
+		|| options.platesGallery === 'true'
+		|| options.gallery === true
+		|| options.gallery === 'true';
 	const showTimer = isEnabledOption(options.showTimer);
 	const showDecisions = isEnabledOption(options.showDecisions);
 	const lang = options.lang || 'en';
@@ -346,7 +349,7 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 			breakType,
 			ceremonyType,
 			sessionStatus: { isDone: false },
-			options: { showPlates, showTimer, showDecisions, showJuryVotes, juryCardSeconds, showFlag: false, showPicture: false },
+			options: { showPlates, threeDPlates, platesGallery, showTimer, showDecisions, showJuryVotes, juryCardSeconds, showFlag: false, showPicture: false },
 			juryLabels: buildJuryLabels(translations),
 			status: 'waiting',
 			message: translations?.WaitingNextGroup || 'Waiting for next group',
@@ -367,21 +370,18 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 		liftsDone: fopUpdate?.liftsDone || ''
 	};
 
-	// Get platform configuration for plates
-	let platform = null;
-	if (databaseState?.platforms) {
-		// Find platform matching this FOP name
-		platform = databaseState.platforms.find(p => p.name === fopName) 
-			|| databaseState.platforms[0];
-		logger.debug(`[Attempt Board] Platform found: ${platform?.name}, fopName: ${fopName}, nbL_25: ${platform?.nbL_25}`);
-	} else {
-		logger.debug(`[Attempt Board] No platforms in database. databaseState exists: ${!!databaseState}`);
-	}
+	// Plate, collar and bar inventory: OWLCMS sends the current equipment with every update
+	const platform = fopUpdate?.platformEquipment && typeof fopUpdate.platformEquipment === 'object'
+		? { name: fopName, ...fopUpdate.platformEquipment }
+		: null;
 	
 	// Extract current athlete from session athletes
 	let currentAttempt = null;
 	let plates = [];
-	let barWeight = 20;
+	// Bar and collars selected by OWLCMS (PlatformEquipmentCalculator)
+	const barWeight = parseInt(fopUpdate?.barWeight, 10) || 0;
+	const useCollars = isTrue(fopUpdate?.useCollars);
+	const lightBar = isTrue(fopUpdate?.lightBarInUse);
 	
 	// Get session athletes from competition hub
 	const sessionAthletes = competitionHub.getSessionAthletes({ fopName }) || [];
@@ -404,12 +404,9 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 			lastName = fullName;
 		}
 		
-		// Determine gender for bar weight
-		const gender = currentAthlete.gender || fopUpdate?.gender || 'M';
-		barWeight = getBarWeight(gender, platform);
-		
 		// Get weight from fopUpdate (current requested weight)
 		const weight = parseInt(fopUpdate?.weight) || 0;
+		const gender = currentAthlete.gender || fopUpdate?.gender || 'M';
 		
 		// Get picture and flag URLs using unified resolver
 		const pictureUrl = getPictureUrl(currentAthlete.membership, true);
@@ -433,12 +430,14 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 			attemptNumber,
 			weight,
 			gender,
-			barWeight
+			barWeight,
+			useCollars,
+			lightBar
 		};
 		
 		// Calculate plates for barbell display
-		if (showPlates && weight > 0 && platform) {
-			plates = calculatePlates(weight, barWeight, platform);
+		if (showPlates && weight > 0 && barWeight > 0 && platform) {
+			plates = calculatePlates(weight, barWeight, { ...platform, useCollars });
 		}
 	}
 	
@@ -479,7 +478,7 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 			hasCollar: (platform.nbC_2_5 || 0) > 0
 		} : null,
 		// Full platform plate configuration for PlatesElement component
-		platformPlates: platform,
+		platformPlates: platform ? { ...platform, useCollars } : null,
 		timer,
 		breakTimer,
 		decision,
@@ -502,6 +501,8 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 		sessionStatus,
 		options: { 
 			showPlates, 
+			threeDPlates,
+			platesGallery,
 			showTimer, 
 			showDecisions, 
 			showJuryVotes,

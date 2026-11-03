@@ -15,6 +15,7 @@
 	 */
 	import CountdownTimer from '$lib/components/CountdownTimer.svelte';
 	import PlatesElement from '$lib/components/PlatesElement.svelte';
+	import PlatesGallery from '$lib/components/PlatesGallery.svelte';
 	import { onDestroy } from 'svelte';
 	import { adjudicationKey, buildDecisionView, isCardVisible, latchAdjudicationCard } from './decision-display.js';
 	
@@ -142,7 +143,9 @@
 </svelte:head>
 
 <div class="wrapper">
-	{#if isWaitMode}
+	{#if options.platesGallery}
+		<PlatesGallery initialThreeD={options.threeDPlates !== false} />
+	{:else if isWaitMode}
 		<!-- WAIT mode: Show competition name and waiting message -->
 		<div class="waiting-message">
 			<div class="big-title">
@@ -248,6 +251,8 @@
 						weight={currentAttempt?.weight || 0}
 						barWeight={currentAttempt?.barWeight || 20}
 						platform={data.platformPlates}
+						lightBar={currentAttempt?.lightBar || false}
+						threeD={options.threeDPlates !== false}
 					/>
 				</div>
 			{:else if !isBreak}
@@ -410,9 +415,11 @@
 	}
 	
 	.flag img {
+		display: block;
 		object-fit: contain;
 		max-height: 25vh;
 		width: 100%;
+		border: 1px solid white;
 	}
 	
 	.flag.with-picture img {
@@ -501,6 +508,11 @@
 		align-items: center;
 		justify-content: center;
 		gap: 2px;
+		width: 100%;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
 	}
 	
 	.barbell-placeholder {
