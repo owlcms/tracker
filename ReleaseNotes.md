@@ -6,9 +6,8 @@
 ## 3.0
 
 - 3.0.0-beta04: Jury Replays and the OBS Streaming and LED Wall plugins can use
-  Video viewer tokens. The OBS plugins have a **Replays token** setting and
-  accept HTTPS replay-server addresses.
-
+  Video viewer tokens. The OBS plugins have a `Replays token` setting and
+  accept HTTPS replay-server addresses.  *The replay tokens are not required unless the Replays application has been used to generate tokens*
 - 3.0.0-beta03: Security: the `/proxy` route to OWLCMS only forwards to the configured OWLCMS address and only serves the tracker's own pages (such as the celebrations frame); opening `/proxy/...` directly or from another site is refused. 
   - Celebrations: the scoreboard option accepts an OWLCMS path such as `/displays/scoreboard?fop=A&token=...`, shown through the proxy.
 - 3.0.0-beta02: Attempt board: plates, collars and bar follow the changes made on the OWLCMS technical controller page. The tracker uses the equipment and the bar selected by OWLCMS (requires OWLCMS 69.0.0-beta03).
