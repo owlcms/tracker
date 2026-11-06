@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-REVISION="${1:-3.0.0-beta01}"
+REVISION="${1:-3.0.0-beta04}"
 # Usage: ./release.sh [tracker-version] [tracker-core-version] [tracker-core-branch] [--submodules]
 # If the tracker-core tag does not exist, the tracker release calls ../tracker-core/release.sh
 # with TRACKER_CORE and TRACKER_CORE_BRANCH before pinning the resulting tag.
-TRACKER_CORE="${2:-2.0.0-beta01}"
-EXPECTED_BRANCH="${RELEASE_BRANCH:-dev69}"
-TRACKER_CORE_BRANCH="${3:-${EXPECTED_BRANCH}}"
+TRACKER_CORE="${2:-2.0.0-beta02}"
+EXPECTED_BRANCH="${RELEASE_BRANCH:-main}"
+TRACKER_CORE_BRANCH="${3:-master}"
 set -euo pipefail
 
 # TEMPORARY (Node.js CVE, Oct 2026): .github/workflows/release.yaml sets `pull: true`

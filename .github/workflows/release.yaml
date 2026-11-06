@@ -7,19 +7,19 @@ on:
       revision:
         description: 'semver number for the release'
         required: true
-        default: '3.0.0-beta01'
+        default: '3.0.0-beta04'
       sourceRef:
         description: 'tracker branch or tag to build'
         required: true
-        default: 'dev69'
+        default: 'main'
       trackerCoreVersion:
         description: 'tracker-core tag to install'
         required: true
-        default: '2.0.0-beta01'
+        default: '2.0.0-beta02'
       trackerCoreBranch:
         description: 'tracker-core branch that must contain the selected tag'
         required: true
-        default: 'dev69'
+        default: 'master'
       includeSubmodules:
         description: 'Include git submodules (e.g., books) in the build'
         required: true
