@@ -56,16 +56,26 @@ function trackerCoreDirtyPaths(statusText) {
     });
 }
 
+// Unauthenticated GitHub API calls share a small per-IP rate limit on CI runners.
+function githubApiHeaders() {
+  const headers = {
+    'User-Agent': 'owlcms-version-checker',
+    'Accept': 'application/vnd.github.v3+json'
+  };
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 export function fetchLatestGitHubTag(owner, repo) {
   return new Promise((resolve, reject) => {
     const options = {
       hostname: 'api.github.com',
       path: `/repos/${owner}/${repo}/tags`,
       method: 'GET',
-      headers: {
-        'User-Agent': 'owlcms-version-checker',
-        'Accept': 'application/vnd.github.v3+json'
-      }
+      headers: githubApiHeaders()
     };
 
     https.get(options, (res) => {
@@ -117,10 +127,7 @@ export function checkTagExists(owner, repo, tag) {
       hostname: 'api.github.com',
       path: `/repos/${owner}/${repo}/git/refs/tags/${tag}`,
       method: 'GET',
-      headers: {
-        'User-Agent': 'owlcms-version-checker',
-        'Accept': 'application/vnd.github.v3+json'
-      }
+      headers: githubApiHeaders()
     };
 
     https.get(options, (res) => {

@@ -129,6 +129,8 @@ jobs:
           echo "✓ Experimental plugins removed"
       
       - name: Build universal package
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/build-zip.js "${{ env.REVISION }}" "${{ env.TRACKER_CORE_VERSION }}" --standard
       
       - name: Setup Docker buildx
