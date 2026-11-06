@@ -996,7 +996,7 @@
                     />
                   {:else}
                     <input 
-                      type="text" 
+                      type={option.type === 'password' ? 'password' : 'text'}
                       id="{modalScoreboard.type}-{modalFop}-{option.key}"
                       bind:value={scoreboardOptions[modalScoreboard.type][modalFop][option.key]}
                       disabled={isOptionDisabled(option, scoreboardOptions[modalScoreboard.type][modalFop])}
@@ -1653,6 +1653,7 @@
   
   .option-field select,
   .option-field input[type="text"],
+  .option-field input[type="password"],
   .option-field input[type="number"] {
     padding: 0.75rem;
     background: rgba(255, 255, 255, 0.05);

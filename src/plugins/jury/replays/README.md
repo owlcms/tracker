@@ -12,6 +12,9 @@ This plugin opens the latest replay from a replays server in a dedicated browser
 ## Configuration
 
 - `replaysBaseUrl`: base URL of the replays web application, for example `http://localhost:8091`
+- If the Video server requires a viewer token, use
+  `http://localhost:8091/?token=<token>` as `replaysBaseUrl`. The token is sent
+  to the Video API, WebSocket and replay URLs. Treat this URL as a password.
 - `enableSlowMotion`: when `true`, shows a `50%` playback button in the timeline popover. Default: `false`
 
 The plugin appends `/replay/{camera}` automatically when you provide the base server URL.

@@ -9,6 +9,16 @@ export function ensureAbsoluteUrl(rawUrl) {
 		: `http://${trimmed}`;
 }
 
+function retainReplayToken(url) {
+	const tokens = url.searchParams.getAll('token');
+	url.search = '';
+	for (const token of tokens) url.searchParams.append('token', token);
+}
+
+function redactReplayTokens(value) {
+	return String(value || '').replace(/((?:[?&]|%3f|%26)token(?:=|%3d))[^&#\s%"'<>]*/gi, '$1[redacted]');
+}
+
 export function normalizeReplaySessionId(value) {
 	return String(value || '')
 		.trim()
@@ -166,7 +176,7 @@ export function buildStatusSocketUrl(baseUrl) {
 			const basePath = url.pathname === '/' ? '' : url.pathname.replace(/\/$/, '');
 			url.pathname = `${basePath}/ws`;
 		}
-		url.search = '';
+		retainReplayToken(url);
 		url.hash = '';
 		return url.toString();
 	} catch {
@@ -188,7 +198,7 @@ export function buildReplayStateUrl(baseUrl) {
 			const basePath = url.pathname === '/' ? '' : url.pathname.replace(/\/$/, '');
 			url.pathname = `${basePath}/api/replay-state`;
 		}
-		url.search = '';
+		retainReplayToken(url);
 		url.hash = '';
 		return { url: url.toString() };
 	} catch {
@@ -206,7 +216,7 @@ export function buildReplaySessionsUrl(baseUrl) {
 		const url = new URL(normalized);
 		const basePath = url.pathname === '/' ? '' : url.pathname.replace(/\/$/, '');
 		url.pathname = `${basePath}/api/sessions`;
-		url.search = '';
+		retainReplayToken(url);
 		url.hash = '';
 		return { url: url.toString() };
 	} catch {
@@ -228,7 +238,7 @@ export function buildReplaySessionLiftsUrl(baseUrl, sessionId, sortMode = 'time'
 		const url = new URL(normalized);
 		const basePath = url.pathname === '/' ? '' : url.pathname.replace(/\/$/, '');
 		url.pathname = `${basePath}/api/sessions/${encodeURIComponent(normalizedSessionId)}/lifts`;
-		url.search = '';
+		retainReplayToken(url);
 		url.hash = '';
 		url.searchParams.set('sort', sortMode === 'athlete' ? 'athlete' : 'time');
 		return { url: url.toString() };
@@ -252,6 +262,7 @@ export function buildReplayUrl(baseUrl, cameraNumber, cacheBust = Date.now()) {
 			url.pathname = `${basePath}/replay/${cameraNumber}`;
 		}
 
+		if (url.searchParams.has('token')) retainReplayToken(url);
 		url.searchParams.set('_t', String(cacheBust));
 		return { url: url.toString() };
 	} catch {
@@ -266,7 +277,17 @@ export function buildExactReplayUrl(baseUrl, videoPath, cacheBust = Date.now()) 
 	}
 
 	try {
-		const url = new URL(videoPath, normalized.endsWith('/') ? normalized : `${normalized}/`);
+		const base = new URL(normalized);
+		if (!base.pathname.endsWith('/')) base.pathname += '/';
+		const url = new URL(videoPath, base);
+		const tokens = base.searchParams.getAll('token');
+		if (tokens.length) {
+			if (url.origin !== base.origin) {
+				return { error: 'Replay metadata points to a different server.' };
+			}
+			url.search = '';
+			for (const token of tokens) url.searchParams.append('token', token);
+		}
 		url.searchParams.set('_t', String(cacheBust));
 		return { url: url.toString() };
 	} catch {
@@ -290,6 +311,9 @@ export async function fetchReplayState(baseUrl) {
 	try {
 		const response = await fetch(replayStateTarget.url, { cache: 'no-store' });
 		if (!response.ok) {
+			if (response.status === 401) {
+				return { error: 'Replays token missing, wrong or expired' };
+			}
 			return null;
 		}
 
@@ -308,6 +332,9 @@ export async function fetchReplaySessions(baseUrl) {
 	try {
 		const response = await fetch(replaySessionsTarget.url, { cache: 'no-store' });
 		if (!response.ok) {
+			if (response.status === 401) {
+				return { sessions: [], activeSessionId: '', error: 'Replays token missing, wrong or expired' };
+			}
 			return { sessions: [], activeSessionId: '' };
 		}
 
@@ -342,7 +369,9 @@ export async function fetchReplaySessionLifts(baseUrl, sessionId, sortMode = 'ti
 	try {
 		const response = await fetch(replayLiftsTarget.url, { cache: 'no-store' });
 		if (!response.ok) {
-			throw new Error(response.status === 404 ? 'No replay history is available for that session yet.' : 'Unable to load replay history from the replays server.');
+			throw new Error(response.status === 401 ? 'Replays token missing, wrong or expired'
+				: response.status === 404 ? 'No replay history is available for that session yet.'
+					: 'Unable to load replay history from the replays server.');
 		}
 
 		const payload = await response.json();
@@ -368,7 +397,7 @@ function normalizeLogText(value, maxLength = 240) {
 		return '';
 	}
 
-	const normalized = String(value).replace(/\s+/g, ' ').trim();
+	const normalized = redactReplayTokens(value).replace(/\s+/g, ' ').trim();
 	if (!normalized) {
 		return '';
 	}
@@ -431,7 +460,7 @@ function normalizePlaybackMode(mode, slowMotionEnabled) {
 	return mode === 'slow' && slowMotionEnabled ? 'slow' : 'normal';
 }
 
-function buildReplayPlaybackFailurePayload({
+export function buildReplayPlaybackFailurePayload({
 	error,
 	playbackRate,
 	blockedStatusMessage,
@@ -461,9 +490,9 @@ function buildReplayPlaybackFailurePayload({
 			mode,
 			cameraNumber: Number.isInteger(activeCameraNumber) ? activeCameraNumber : null,
 			playbackRate: roundLogNumber(playbackRate),
-			replayUrl: normalizeLogText(replayUrl, 320),
-			currentSrc: normalizeLogText(videoElement?.currentSrc || '', 320),
-			pageUrl: normalizeLogText(typeof window === 'undefined' ? '' : window.location?.href || '', 320),
+			replayUrl: normalizeLogText(redactReplayTokens(replayUrl), 320),
+			currentSrc: normalizeLogText(redactReplayTokens(videoElement?.currentSrc || ''), 320),
+			pageUrl: normalizeLogText(redactReplayTokens(typeof window === 'undefined' ? '' : window.location?.href || ''), 320),
 			documentVisibility: normalizeLogText(typeof document === 'undefined' ? '' : document.visibilityState || '', 40),
 			playErrorName,
 			playErrorMessage,

@@ -288,6 +288,9 @@
 
 	async function loadReplayState() {
 		const replayState = await fetchReplayState(replayServerBaseUrl);
+		if (replayState?.error) {
+			errorMessage = replayState.error;
+		}
 		const view = replayStateView(replayState);
 		replayStateSessionId = view.sessionId;
 		replayStateCameras = view.cameras;
@@ -522,7 +525,8 @@
 			return replayPickerSessions;
 		}
 
-		const { sessions, activeSessionId } = await fetchReplaySessions(replayServerBaseUrl);
+		const { sessions, activeSessionId, error } = await fetchReplaySessions(replayServerBaseUrl);
+		if (error) replayPickerError = error;
 		if (!replayStateSessionId && activeSessionId) {
 			replayStateSessionId = activeSessionId;
 		}
@@ -636,6 +640,7 @@
 	}
 
 	async function initializeReplayState() {
+		errorMessage = '';
 		const replaySelection = await syncReplayState({
 			preferredCamera: 1,
 			showPopover: true,
@@ -646,8 +651,7 @@
 			return;
 		}
 
-		statusMessage = 'No replay available.';
-		errorMessage = '';
+		statusMessage = errorMessage ? 'Replay load failed.' : 'No replay available.';
 		isLoading = false;
 		cameraPopoverPending = false;
 		showTimelinePopover = false;
@@ -705,6 +709,11 @@
 
 	async function syncReplayState({ preferredCamera = 1, showPopover = false, autoPlay = false, preservePopover = false, attemptKey = '' } = {}) {
 		const replayState = await fetchReplayState(replayServerBaseUrl);
+		if (replayState?.error) {
+			errorMessage = replayState.error;
+			statusMessage = 'Replay load failed.';
+			return null;
+		}
 		const replaySelection = getReplaySelectionForCamera(replayState, preferredCamera, attemptKey);
 		if (!replaySelection) {
 			return null;
@@ -750,7 +759,7 @@
 		const sessions = await ensureReplayPickerSessions();
 		if (sessions.length === 0) {
 			replayPickerLifts = [];
-			replayPickerError = 'No sessions are available from tracker or the replays server.';
+			replayPickerError = replayPickerError || 'No sessions are available from tracker or the replays server.';
 			return;
 		}
 
