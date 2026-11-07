@@ -5,6 +5,7 @@
 
 ## 3.0
 
+- 3.0.0-beta05: Use tracker-core root cause fix for scoreboard break updates
 - 3.0.0-beta04: Jury Replays and the OBS Streaming and LED Wall plugins can use
   Video viewer tokens. The OBS plugins have a `Replays token` setting and
   accept HTTPS replay-server addresses.  *The replay tokens are not required unless the Replays application has been used to generate tokens*
