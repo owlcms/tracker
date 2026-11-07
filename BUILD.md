@@ -69,12 +69,17 @@ npm run release -- 2.4.0
 **What the script does:**
 
 1. **Validates version** - Checks semver format (X.Y.Z or X.Y.Z-beta01)
-2. **Resolves tracker-core version** - Uses the provided version, or queries GitHub for the latest semver tag
+2. **Resolves tracker-core version** - Uses the provided version, or queries GitHub for the latest semver tag. Verifies publication with `git ls-remote --exit-code --refs` against the GitHub repository, not local tags or the GitHub REST API.
 3. **Pins tracker-core in package.json** - Uses `npm pkg set` to set `@owlcms/tracker-core` to `github:owlcms/tracker-core#<version>`
 4. **Updates package-lock.json** - Uses `npm install --package-lock-only` (does not touch `node_modules`, so it won't break local links)
 5. **Commits changes** - Stages and commits `package.json`, `package-lock.json`, and `ReleaseNotes.md`
 6. **Pushes to GitHub** - Uploads the commit
 7. **Triggers workflow** - Uses `gh workflow run -f revision=<version>` to start build
+
+A missing tag is checked up to three times, two seconds apart, before offering
+to release tracker-core. Finding the exact remote tag stops the checks
+immediately. Network, authentication, and Git failures stop the release with an
+error instead of treating an already-published version as missing.
 
 ### Manual Release Steps (if needed)
 

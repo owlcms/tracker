@@ -121,35 +121,37 @@ export function fetchLatestGitHubTag(owner, repo) {
   });
 }
 
-export function checkTagExists(owner, repo, tag) {
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: 'api.github.com',
-      path: `/repos/${owner}/${repo}/git/refs/tags/${tag}`,
-      method: 'GET',
-      headers: githubApiHeaders()
-    };
-
-    https.get(options, (res) => {
-      let data = '';
-
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-
-      res.on('end', () => {
-        if (res.statusCode === 200) {
-          resolve(true);
-        } else if (res.statusCode === 404) {
-          resolve(false);
-        } else {
-          reject(new Error(`GitHub API returned ${res.statusCode}: ${data}`));
-        }
-      });
-    }).on('error', (error) => {
-      reject(new Error(`Failed to check tag: ${error.message}`));
+export async function checkTagExists(owner, repo, tag) {
+  const remote = `https://github.com/${owner}/${repo}.git`;
+  const ref = `refs/tags/${tag}`;
+  const maxAttempts = 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const result = spawnSync('git', ['ls-remote', '--exit-code', '--refs', remote, ref], {
+      encoding: 'utf8',
+      shell: false
     });
-  });
+
+    if (result.error) {
+      throw new Error(`Failed to check remote tag '${tag}': ${result.error.message}`);
+    }
+    if (result.status === 2) {
+      if (attempt < maxAttempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+      continue;
+    }
+    if (result.status !== 0) {
+      const detail = (result.stderr || '').trim() ||
+        (result.signal ? `git was terminated by ${result.signal}` : `git exited with status ${result.status}`);
+      throw new Error(`Failed to check remote tag '${tag}': ${detail}`);
+    }
+
+    if (!result.stdout.split(/\r?\n/).some((line) => line.split('\t')[1] === ref)) {
+      throw new Error(`Failed to check remote tag '${tag}': git did not return the requested ref '${ref}'`);
+    }
+    return true;
+  }
+  return false;
 }
 
 export async function resolveTrackerCoreVersion({
