@@ -21,7 +21,8 @@ const labels = {
 	'AttemptBoard_lift_attempt_number': '{1} #{0}',
 	'AttemptBoard_lift.SNATCH': 'Snatch',
 	'AttemptBoard_lift.CLEANJERK': 'C. & J.',
-	'Jury.incorrect.5': 'Incomplete attempt'
+	'Jury.incorrect.5': 'Incomplete attempt',
+	'Jury.StandsAsCalled': 'Referee Decision Stands as Called'
 };
 
 const state = (extra = {}) => ({
@@ -171,6 +172,15 @@ describe('adjudication card', () => {
 		expect(card).toEqual({ success: true, status: 'Jury Confirmation', decision: 'New Record!', athlete: 'DOE, Jane', attempt: 'C. & J. #1', rule: '' });
 	});
 
+	it('shows Referee Decision Stands as Called, without a number, on a No Lift and on a Good Lift', () => {
+		const noLift = buildAdjudicationCard(adjudication({ reversal: false, ruleCode: 0 }), labels, 'X');
+		expect(noLift.rule).toBe('Referee Decision Stands as Called');
+		expect(noLift.status).toBe('Jury Confirmation');
+		const goodLift = buildAdjudicationCard(adjudication({ decision: true, reversal: false, ruleCode: 0 }), labels, 'X');
+		expect(goodLift.rule).toBe('Referee Decision Stands as Called');
+		expect(goodLift.decision).toBe('Good Lift');
+	});
+
 	it('has no status when OWLCMS does not say whether the jury reversed', () => {
 		expect(buildAdjudicationCard(adjudication({ reversal: null }), labels, 'X').status).toBe('');
 	});
@@ -181,7 +191,8 @@ describe('adjudication card', () => {
 	});
 
 	it('picks the card texts from a translation map', () => {
-		expect(buildJuryLabels({ 'Jury.incorrect.5': 'x', Other: 'y' })).toEqual({ 'Jury.incorrect.5': 'x' });
+		expect(buildJuryLabels({ 'Jury.incorrect.5': 'x', 'Jury.StandsAsCalled': 'z', Other: 'y' }))
+			.toEqual({ 'Jury.incorrect.5': 'x', 'Jury.StandsAsCalled': 'z' });
 	});
 });
 

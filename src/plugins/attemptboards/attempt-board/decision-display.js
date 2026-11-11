@@ -18,6 +18,7 @@ export const JURY_LABEL_KEYS = [
 	'AttemptBoard_lift.CLEANJERK',
 	'Snatch_number',
 	'C_and_J_number',
+	'Jury.StandsAsCalled',
 	...Array.from({ length: 17 }, (_, i) => `Jury.incorrect.${i + 1}`)
 ];
 
@@ -134,8 +135,12 @@ export function buildAdjudicationCard(adjudication, labels, athleteName) {
 	if (adjudication.reversal === true) status = labels?.['JuryNotification.Reversal'] || 'JuryNotification.Reversal';
 	else if (adjudication.reversal === false) status = labels?.['JuryNotification.Confirmed'] || 'JuryNotification.Confirmed';
 
+	// a No Lift rule, or code 0 when the referees' decision stands as called (Good Lift or No Lift), shown without a
+	// number
 	let rule = '';
-	if (!success && adjudication.ruleCode !== null && adjudication.ruleCode !== undefined) {
+	if (adjudication.ruleCode === 0) {
+		rule = labels?.['Jury.StandsAsCalled'] || 'Jury.StandsAsCalled';
+	} else if (!success && adjudication.ruleCode !== null && adjudication.ruleCode !== undefined) {
 		const text = labels?.[`Jury.incorrect.${adjudication.ruleCode}`];
 		rule = text ? `${adjudication.ruleCode} - ${text}` : String(adjudication.ruleCode);
 	}
