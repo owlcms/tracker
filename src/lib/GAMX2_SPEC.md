@@ -105,7 +105,9 @@ Given `gender`, `bodyMass`, and `age`:
 3. **Binary search** to find first row matching `normalizedAge`
 4. **Expand** to find all rows with same age (using `normalizedAge`, not original `age`)
 5. Extract body-mass rows for that age, convert to `[bodyMass, mu, sigma, nu]` format
-6. Interpolate by body mass as above
+6. Use the row at the body mass rounded to 0.1 kg (R's `round(x, 1)`, as in the reference online
+   calculators). Interpolation as above is kept behind `INTERPOLATE_AGE_TABLES` (currently `false`).
+   SENIOR tables are always interpolated.
 
 ```javascript
 // CRITICAL: Use normalizedAge (clamped) not original age when expanding rows
