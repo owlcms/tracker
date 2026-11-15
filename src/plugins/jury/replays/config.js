@@ -15,6 +15,13 @@ export default {
 			description: 'Base URL of the replays web app. Camera buttons 1 to 4 load the corresponding /replay/{camera} endpoint.'
 		},
 		{
+			key: 'replayToken',
+			label: 'Replays token',
+			type: 'password',
+			default: '',
+			description: 'Viewer token generated in Video, if access tokens are enabled.'
+		},
+		{
 			key: 'enableSlowMotion',
 			label: 'Enable Slow Motion',
 			type: 'boolean',

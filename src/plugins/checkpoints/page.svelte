@@ -31,10 +31,16 @@
 
 	async function act(action, params = {}) {
 		const query = new URLSearchParams({ plugin: PLUGIN, action });
+		const body = {};
 		for (const [key, value] of Object.entries(params)) {
-			if (value !== undefined && value !== null) query.set(key, String(value));
+			if (value !== undefined && value !== null) body[key] = String(value);
 		}
-		const response = await fetch(`/api/plugin-action?${query}`, { method: 'POST' });
+		// Options travel in a JSON body, so the secret stays out of the URL.
+		const response = await fetch(`/api/plugin-action?${query}`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body)
+		});
 		return response.json();
 	}
 

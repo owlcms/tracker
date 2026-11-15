@@ -17,7 +17,8 @@
 
 import { bumpCacheEpoch } from './cache-epoch.js';
 import { competitionHub } from './competition-hub.js';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
+import { protectStoredSecrets, revealSecretDefault, valueForStorage, writeOverrideFile } from './override-secrets.js';
+import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { dirname, resolve, join } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import JSON5 from 'json5';
@@ -95,7 +96,9 @@ function applyConfigOverrideDefaults(config, overrideConfig) {
 		overriddenKeys.push(option.key);
 		return {
 			...option,
-			default: defaultsByKey.get(option.key)
+			default: option.type === 'password'
+				? revealSecretDefault(option.key, defaultsByKey.get(option.key))
+				: defaultsByKey.get(option.key)
 		};
 	});
 
@@ -409,6 +412,7 @@ class ScoreboardRegistry {
 			config = clonePluginConfig(config);
 			const runtimeConfigOverride = await loadRuntimeConfigOverride(pluginPath, runtimePaths);
 			if (runtimeConfigOverride) {
+				protectStoredSecrets(runtimeConfigOverride, config);
 				const overrideResult = applyConfigOverrideDefaults(config, runtimeConfigOverride.config);
 				config = overrideResult.config;
 				if (overrideResult.overriddenKeys.length > 0) {
@@ -556,29 +560,27 @@ class ScoreboardRegistry {
 		}
 
 		const savedKeys = [];
-		const payload = {
-			options: declaredOptions
-				.filter((opt) => opt?.key && Object.prototype.hasOwnProperty.call(suppliedOptions, opt.key))
-				.map((opt) => {
-					savedKeys.push(opt.key);
-					return { key: opt.key, default: suppliedOptions[opt.key] };
-				})
-		};
+		let payload;
+		try {
+			payload = {
+				options: declaredOptions
+					.filter((opt) => opt?.key && Object.prototype.hasOwnProperty.call(suppliedOptions, opt.key))
+					.map((opt) => {
+						savedKeys.push(opt.key);
+						const value = suppliedOptions[opt.key];
+						return { key: opt.key, default: valueForStorage(opt, value) };
+					})
+			};
+		} catch (err) {
+			return { success: false, error: 'encryption_failed', message: `Could not encrypt a saved secret: ${err.message}` };
+		}
 
 		if (payload.options.length === 0) {
 			return { success: false, error: 'no_matching_options' };
 		}
 
-		const header = [
-			'// Runtime default overrides for this plugin.',
-			'// The tracker reads only options[].default from this file.',
-			'// JSON5 syntax: comments and trailing commas are allowed.',
-			''
-		].join('\n');
-
 		try {
-			mkdirSync(dirname(writePath), { recursive: true });
-			writeFileSync(writePath, `${header}${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+			writeOverrideFile(writePath, payload);
 		} catch (err) {
 			return { success: false, error: 'write_failed', message: err.message };
 		}

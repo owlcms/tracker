@@ -2,6 +2,7 @@
   import { browser, dev } from '$app/environment';
   import { invalidateAll } from '$app/navigation';
   import { onMount } from 'svelte';
+  import { openReplaysPage } from '../plugins/jury/replays/token-session.js';
   export let data;
   
   // Store option selections per scoreboard type AND per FOP
@@ -319,30 +320,17 @@
   async function openScoreboard(type, fop, withOptions = false) {
     const optionKey = getOptionContextKey(fop);
     const options = scoreboardOptions[type]?.[optionKey] || {};
-    const params = new URLSearchParams();
-    
-    // Find the scoreboard config to get default values
-    const scoreboard = data.scoreboards.find(s => s.type === type);
-    
-    // Only add FOP if it's required or optional (not for fopRequired: false)
-    if (fop && scoreboard?.fopRequired !== false) {
-      params.append('fop', fop);
-    }
-    
-    // Add configured options to URL (only if different from default)
-    Object.entries(options).forEach(([key, value]) => {
-      // Find the option config to get its default value
-      const optionConfig = scoreboard?.options?.find(opt => opt.key === key);
-      const defaultValue = optionConfig?.default;
-      
-      // Only include in URL if value is different from default and not empty
-      if (value !== defaultValue && value !== undefined && value !== null && value !== '') {
-        params.append(key, value);
+    const url = getScoreboardUrl(type, fop);
+    if (type === 'replays') {
+      try {
+        openReplaysPage(window, url, options.replayToken);
+      } catch (error) {
+        alert(`Unable to open Replays: ${error.message}`);
+        return;
       }
-    });
-    
-    const url = `/${type}?${params.toString()}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
 
     if (withOptions) {
       closeModal();
@@ -392,8 +380,9 @@
       params.append('fop', fop);
     }
     
-    // Add all configured options to URL
+    // Add all configured options to URL, except secrets
     Object.entries(options).forEach(([key, value]) => {
+      if (scoreboard?.options?.find((option) => option.key === key)?.type === 'password') return;
       if (value !== undefined && value !== null && value !== '') {
         params.append(key, value);
       }
@@ -485,6 +474,8 @@
     Object.entries(options).forEach(([key, value]) => {
       // Find the option config to get its default value
       const optionConfig = scoreboard?.options?.find(opt => opt.key === key);
+      // Secrets never go in a URL: pages use the saved default (Replays also gets the typed value through session storage).
+      if (optionConfig?.type === 'password') return;
       const defaultValue = optionConfig?.default;
       
       // Only include in URL if value is different from default and not empty
@@ -570,14 +561,16 @@
     const optionKey = getOptionContextKey(fop);
     const options = optionValues || scoreboardOptions[pluginType]?.[optionKey] || {};
     const params = new URLSearchParams();
+    const bodyValues = {};
     
     params.append('plugin', pluginType);
     params.append('action', action);
     
-    // Add all configured options
+    // Options go in the body, so secrets stay out of URLs. Empty passwords are sent, so a cleared field overrides a saved default.
     Object.entries(options).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        params.append(key, value);
+      const optionConfig = data.scoreboards.find((scoreboard) => scoreboard.type === pluginType)?.options?.find((option) => option.key === key);
+      if (value !== undefined && value !== null && (value !== '' || optionConfig?.type === 'password')) {
+        bodyValues[key] = value;
       }
     });
     
@@ -587,7 +580,11 @@
     }
     
     try {
-      const response = await fetch(`/api/plugin-action?${params.toString()}`);
+      const response = await fetch(`/api/plugin-action?${params.toString()}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(bodyValues)
+      });
 
       // If this is a download action and the server returned a file, trigger browser download
       const contentDisposition = response.headers.get('Content-Disposition');
@@ -823,6 +820,12 @@
                               class="fop-link"
                               target="_blank"
                               rel="noopener noreferrer"
+                              on:click={(event) => {
+                                if (scoreboard.type === 'replays') {
+                                  event.preventDefault();
+                                  openScoreboard(scoreboard.type, '');
+                                }
+                              }}
                             >
                               {getSingleLauncherLabel(scoreboard)}
                             </a>

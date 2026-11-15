@@ -1,5 +1,6 @@
 <script>
 	import { onMount, tick } from 'svelte';
+	import { replaceState } from '$app/navigation';
 	import {
 		buildExactReplayUrl,
 		buildReplayUrl,
@@ -14,9 +15,11 @@
 		normalizeTrackerSessions,
 		openReplaysStatusSocket,
 		reportReplayPlaybackFailure,
+		replayBaseUrlWithToken,
 		replayStateView,
 		resolveLiveStatusDetails
 	} from './helpers.client.js';
+	import { replayTokenStorageKey } from './token-session.js';
 	import weightlifterIconWhite from './icons/wl_white.png';
 
 	export let data = {};
@@ -74,11 +77,15 @@
 	let pendingCameraOneAttemptKey = '';
 	let loadingCameraOneAttemptKey = '';
 	let replayStatusGeneration = 0;
+	let sessionReplayToken = null;
 
 	const cameraNumbers = [1, 2, 3, 4];
 	const timelineKeyboardStepSeconds = 0.01;
 
-	$: replayServerBaseUrl = options?.replaysBaseUrl || data?.options?.replaysBaseUrl || '';
+	$: replayServerBaseUrl = replayBaseUrlWithToken(
+		options?.replaysBaseUrl || data?.options?.replaysBaseUrl || '',
+		sessionReplayToken ?? options?.replayToken ?? data?.options?.replayToken ?? ''
+	);
 	$: slowMotionEnabled = normalizeBooleanOption(options?.enableSlowMotion ?? data?.options?.enableSlowMotion ?? false);
 	$: hasConfiguredServer = replayServerBaseUrl.trim().length > 0;
 	$: visibleCameraNumbers = replayStateCameras.some((selection) => selection?.available)
@@ -149,6 +156,18 @@
 	}
 
 	onMount(() => {
+		try {
+			const url = new URL(window.location.href);
+			if (url.searchParams.has('replayToken')) {
+				sessionStorage.setItem(replayTokenStorageKey, url.searchParams.get('replayToken') || '');
+				url.searchParams.delete('replayToken');
+				replaceState(url, {});
+			}
+			sessionReplayToken = sessionStorage.getItem(replayTokenStorageKey);
+		} catch (error) {
+			errorMessage = `Unable to access the Replays token: ${error.message}`;
+			return;
+		}
 		mounted = true;
 
 		const handleFullscreenChange = () => {

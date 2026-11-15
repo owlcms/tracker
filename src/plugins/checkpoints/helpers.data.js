@@ -11,6 +11,7 @@ import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import JSON5 from 'json5';
 import { competitionHub } from '$lib/server/competition-hub.js';
+import { decryptSecret, encryptSecret, isEncrypted } from '$lib/server/secret-store.js';
 import { createFolder, folderSummary, listFolders, pullCheckpoint, recoverPendingCheckpoints } from './checkpoint-core.js';
 import { CheckpointRunner } from './checkpoint-runner.js';
 
@@ -26,23 +27,41 @@ function isFolder(path) {
 	}
 }
 
+/** The secret is stored encrypted; `plainSecret` tells that a plain value from an earlier version must be rewritten. */
 function loadSaved() {
-	if (!existsSync(STATE_PATH)) return {};
+	if (!existsSync(STATE_PATH)) return { saved: {}, plainSecret: false };
 	try {
 		const parsed = JSON5.parse(readFileSync(STATE_PATH, 'utf8'));
 		const saved = {};
+		let plainSecret = false;
 		for (const option of parsed?.options || []) {
-			if (SETTINGS_KEYS.includes(option?.key)) saved[option.key] = option.default;
+			if (!SETTINGS_KEYS.includes(option?.key)) continue;
+			saved[option.key] = option.default;
+			if (option.key === 'secret' && typeof option.default === 'string' && option.default.trim() !== '') {
+				plainSecret = !isEncrypted(option.default);
+				try {
+					saved.secret = decryptSecret(option.default);
+				} catch (error) {
+					console.warn(`${TAG} ${error.message}`);
+					saved.secret = '';
+				}
+			}
 		}
-		return saved;
+		return { saved, plainSecret };
 	} catch (error) {
 		console.warn(`${TAG} cannot read ${STATE_PATH}: ${error.message}`);
-		return {};
+		return { saved: {}, plainSecret: false };
 	}
 }
 
 function save(runner) {
 	const values = { ...runner.settings, started: runner.started };
+	try {
+		values.secret = encryptSecret(values.secret);
+	} catch (error) {
+		console.warn(`${TAG} cannot encrypt the secret, it is not saved: ${error.message}`);
+		values.secret = '';
+	}
 	const payload = { options: SETTINGS_KEYS.map((key) => ({ key, default: values[key] })) };
 	const header = '// Checkpoints settings, written by the plugin page. JSON5.\n';
 	try {
@@ -68,12 +87,13 @@ function createRunner() {
 		},
 		persist: save
 	});
-	const saved = loadSaved();
+	const { saved, plainSecret } = loadSaved();
 	created.settings = {
 		...created.settings,
 		...Object.fromEntries(Object.entries(saved).filter(([key, value]) => key !== 'started' && value != null))
 	};
 	created.started = saved.started === true;
+	if (plainSecret) save(created);
 	const recovered = recoverPendingCheckpoints(created.settings.folder);
 	if (recovered.outcome === 'stored') {
 		created.status.lastCheckpoint = recovered.name;

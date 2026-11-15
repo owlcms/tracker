@@ -9,6 +9,22 @@ export function ensureAbsoluteUrl(rawUrl) {
 		: `http://${trimmed}`;
 }
 
+export function replayBaseUrlWithToken(baseUrl, token) {
+	const normalized = ensureAbsoluteUrl(baseUrl);
+	const trimmedToken = String(token || '').trim();
+	if (!normalized || !trimmedToken) {
+		return baseUrl || '';
+	}
+
+	try {
+		const url = new URL(normalized);
+		url.searchParams.set('token', trimmedToken);
+		return url.toString();
+	} catch {
+		return baseUrl;
+	}
+}
+
 function retainReplayToken(url) {
 	const tokens = url.searchParams.getAll('token');
 	url.search = '';
@@ -16,7 +32,7 @@ function retainReplayToken(url) {
 }
 
 function redactReplayTokens(value) {
-	return String(value || '').replace(/((?:[?&]|%3f|%26)token(?:=|%3d))[^&#\s%"'<>]*/gi, '$1[redacted]');
+	return String(value || '').replace(/((?:[?&]|%3f|%26)(?:replay)?token(?:=|%3d))(?:(?!%26|%23)[^&#\s"'<>])*/gi, '$1[redacted]');
 }
 
 export function normalizeReplaySessionId(value) {

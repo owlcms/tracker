@@ -5,6 +5,7 @@
  * Plugins export a `handleAction({ action, options })` function in helpers.data.js
  * 
  * GET/POST: /api/plugin-action?plugin=remoteControl&action=status&...options
+ * POST may carry the options as a JSON object body instead, which keeps secrets out of URLs.
  */
 
 import { json } from '@sveltejs/kit';
@@ -15,11 +16,33 @@ export async function GET({ url }) {
   return handleRequest(url);
 }
 
-export async function POST({ url }) {
-  return handleRequest(url);
+// JSON rather than a form body: SvelteKit refuses form posts whose Origin differs from the origin it computes, which
+// adapter-node assumes is https unless ORIGIN is set, so form posts fail on a plain-http Tracker.
+export async function POST({ url, request }) {
+  if (!request.headers.get('content-type')?.startsWith('application/json')) {
+    return handleRequest(url);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ success: false, error: 'invalid_options' }, { status: 400 });
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return json({ success: false, error: 'invalid_options' }, { status: 400 });
+  }
+  const searchParams = new URLSearchParams(url.searchParams);
+  for (const [key, value] of Object.entries(body)) {
+    if (key === 'plugin' || key === 'action' || (value !== null && typeof value === 'object')) {
+      return json({ success: false, error: 'invalid_options' }, { status: 400 });
+    }
+    if (value !== undefined && value !== null) searchParams.set(key, String(value));
+  }
+  return handleRequest(url, searchParams);
 }
 
-async function handleRequest(url) {
+async function handleRequest(url, optionParams = url.searchParams) {
   const pluginName = url.searchParams.get('plugin');
   const action = url.searchParams.get('action') || 'status';
 
@@ -56,7 +79,7 @@ async function handleRequest(url) {
   // Build options: config defaults (base then extension) + URL overrides
   const options = buildOptions({
     scoreboard,
-    url,
+    url: { searchParams: optionParams },
     reservedKeys: new Set(['plugin', 'action']),
     registry: scoreboardRegistry
   });
