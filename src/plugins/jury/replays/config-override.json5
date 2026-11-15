@@ -1,11 +1,16 @@
 // Runtime default overrides for this plugin.
 // The tracker reads only options[].default from this file.
+// Password options are encrypted with ~/.owlcms/tracker.aes.
 // JSON5 syntax: comments and trailing commas are allowed.
 {
   "options": [
     {
       "key": "replaysBaseUrl",
-      "default": "http://192.168.1.58:8091"
+      "default": "http://127.0.0.1:8091"
+    },
+    {
+      "key": "replayToken",
+      "default": "enc:v1:ab9f7210:z7JyAIF17BMLklU/WE8lzPYC+laabuna7gAf+7/BYWczhJENBqb2Qg=="
     },
     {
       "key": "enableSlowMotion",
