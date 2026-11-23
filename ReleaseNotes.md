@@ -4,27 +4,25 @@
 > #### ⚠ It is recommended to update OWLCMS to the latest stable version when updating Tracker.
 
 ## 3.0
-
-- 3.0.0-rc01: Saved passwords and tokens (Replays token, OBS WebSocket password, OBS stream key, Checkpoints secret) are encrypted with the key in `~/.owlcms/tracker.aes`
+- 3.0.0: **Requires OWLCMS 69.** The tracker now uses tracker-core 2.0, which only accepts protocol 69.0.0 or later. OWLCMS 66, 67 and 68 send protocol 64.0.0: the tracker shows a "Protocol Version Mismatch" message on its home page and ignores their data. Update OWLCMS and the tracker together.
+- 3.0.0: Scoreboards now display a decision block same as OWLCMS 69.
+- 3.0.0: Saved passwords and tokens (Replays token, OBS WebSocket password, OBS stream key, Checkpoints secret) are encrypted with the key in `~/.owlcms/tracker.aes`
   - Key is created on first use
   - Values saved in plain text by earlier versions are encrypted when the tracker starts.
   - The configuration page and the Checkpoints page send options in the request body instead of the URL.
-- 3.0.0-beta05: Use tracker-core for scoreboard break updates instead of local workaround
-- 3.0.0-beta04: Jury Replays and the OBS Streaming and LED Wall plugins can use
-  Video viewer tokens. The OBS plugins have a `Replays token` setting and
+- 3.0.0: Jury Replays and the OBS Streaming and LED Wall plugins can use Video viewer tokens. The OBS plugins have a `Replays token` setting and
   accept HTTPS replay-server addresses.  *The replay tokens are not required unless the Replays application has been used to generate tokens*
-- 3.0.0-beta03: Security: the `/proxy` route to OWLCMS only forwards to the configured OWLCMS address and only serves the tracker's own pages (such as the celebrations frame); opening `/proxy/...` directly or from another site is refused. 
+- 3.0.0: Security: the `/proxy` route to OWLCMS only forwards to the configured OWLCMS address and only serves the tracker's own pages (such as the celebrations frame); opening `/proxy/...` directly or from another site is refused. 
   - Celebrations: the scoreboard option accepts an OWLCMS path such as `/displays/scoreboard?fop=A&token=...`, shown through the proxy.
-- 3.0.0-beta02: Attempt board: plates, collars and bar follow the changes made on the OWLCMS technical controller page. The tracker uses the equipment and the bar selected by OWLCMS (requires OWLCMS 69.0.0-beta03).
-- 3.0.0-beta02: Attempt board: new `threeDPlates` option (on by default) shows the bar and plates in 3D, as on the OWLCMS attempt board with the `3DattemptBoard` feature switch. The `platesGallery` option shows all plate loadings and bar colors for checking the display.
-- 3.0.0-beta02: Attempt board: the team flag has a thin white border, as on the OWLCMS attempt board.
-- 3.0.0-beta02: New Checkpoints page: periodically copies the current competition database and changed logs from OWLCMS 69 into a recovery folder. Checkpoint updates are extracted once into a temporary folder; the newest database is made available first, while the checkpoint cursor advances only after the logs are merged and older databases are cleaned up.
-- 3.0.0-beta01: **Requires OWLCMS 69.** The tracker now uses tracker-core 2.0, which only accepts protocol 69.0.0 or later. OWLCMS 66, 67 and 68 send protocol 64.0.0: the tracker shows a "Protocol Version Mismatch" message on its home page and ignores their data. Update OWLCMS and the tracker together.
-- 3.0.0-beta01: Attempt board shows the referee lights, the jury votes and the jury decision as the OWLCMS attempt board does (options `showJuryVotes` and `juryCardSeconds`).
-- 3.0.0-beta01: Attempt board: referee lights are rectangles as on the OWLCMS attempt board. A jury or panel review shows the jury votes, then a jury card with the final decision ("New Record!" instead of "Good Lift" when a record was set). The team name and the athlete picture stay visible during decisions.
-- 3.0.0-beta01: Attempt board: the break countdown is shown only when OWLCMS shows it (not for indefinite breaks), and ceremony titles (introductions, medals) are shown during a countdown.
-- 3.0.0-beta01: Break countdowns no longer reach zero early, and pages opened right after a restart or a reconnection no longer show untranslated keys (`!Group_number`, ...). See tracker-core 2.0.0-beta01.
-- 3.0.0-beta01: Pages that produce documents (results books, protocols) ask OWLCMS for fresh copies of flags, logos and pictures before generating, without disconnecting OWLCMS.
+- 3.0.0: Attempt board: plates, collars and bar follow the changes made on the OWLCMS technical controller page. The tracker uses the equipment and the bar selected by OWLCMS (requires OWLCMS 69.0.0-beta03).
+- 3.0.0: Attempt board: new `threeDPlates` option (on by default) shows the bar and plates in 3D, as on the OWLCMS attempt board with the `3DattemptBoard` feature switch. The `platesGallery` option shows all plate loadings and bar colors for checking the display.
+- 3.0.0: Attempt board: the team flag has a thin white border, as on the OWLCMS attempt board.
+- 3.0.0: New Checkpoints page: periodically copies the current competition database and changed logs from OWLCMS 69 into a recovery folder. Checkpoint updates are extracted once into a temporary folder; the newest database is made available first, while the checkpoint cursor advances only after the logs are merged and older databases are cleaned up.
+- 3.0.0: Attempt board shows the referee lights, the jury votes and the jury decision as the OWLCMS attempt board does (options `showJuryVotes` and `juryCardSeconds`).
+- 3.0.0: Attempt board: referee lights are rectangles as on the OWLCMS attempt board. A jury or panel review shows the jury votes, then a jury card with the final decision ("New Record!" instead of "Good Lift" when a record was set). The team name and the athlete picture stay visible during decisions.
+- 3.0.0: Attempt board: the break countdown is shown only when OWLCMS shows it (not for indefinite breaks), and ceremony titles (introductions, medals) are shown during a countdown.
+- 3.0.0: Break countdowns no longer reach zero early, and pages opened right after a restart or a reconnection no longer show untranslated keys (`!Group_number`, ...). See tracker-core 2.0.0-beta01.
+- 3.0.0: Pages that produce documents (results books, protocols) ask OWLCMS for fresh copies of flags, logos and pictures before generating, without disconnecting OWLCMS.
 
 ## 2.22
 

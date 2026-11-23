@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-REVISION="${1:-3.0.0-beta05}"
+REVISION="${1:-3.0.0-rc02}"
 # Usage: ./release.sh [tracker-version] [tracker-core-version] [tracker-core-branch] [--submodules]
 # If the tracker-core tag does not exist, the tracker release calls ../tracker-core/release.sh
 # with TRACKER_CORE and TRACKER_CORE_BRANCH before pinning the resulting tag.
