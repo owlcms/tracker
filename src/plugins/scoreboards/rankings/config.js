@@ -23,6 +23,13 @@ export default {
 			type: 'boolean',
 			default: true,
 			description: 'Display the leaders section on the grid'
+		},
+		{
+			key: 'showDecisionSection',
+			label: 'Show Decision Section',
+			type: 'boolean',
+			default: true,
+			description: 'Display the bottom decision block line with referee decisions and jury outcomes'
 		}
 	]
 };

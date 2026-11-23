@@ -6,6 +6,7 @@
 	import RecordsSection from '$lib/components/RecordsSection.svelte';
 	import CurrentAttemptBar from '$lib/components/CurrentAttemptBar.svelte';
 	import AthletesGrid from '$lib/components/AthletesGrid.svelte';
+	import DecisionBlockBar from '$lib/components/DecisionBlockBar.svelte';
 	
 	// Props passed from parent route
 	export let data = {};
@@ -123,6 +124,18 @@
 	$: showRecords = showRecordsParam !== 'false';  // Default true unless explicitly set to false
 	$: hasRecords = (data.records && data.records.length > 0) || !!data.personalRecords;
 
+	// Decision block line (visible by default; can be disabled via showDecisionSection=false)
+	$: showDecisionSectionParam = $page.url.searchParams.get('showDecisionSection');
+	$: showDecisionSection = showDecisionSectionParam !== null
+		? showDecisionSectionParam !== 'false'
+		: data.options?.showDecisionSection !== false;
+
+	// Top bar referee decisions (default true for now: shown at both top and bottom when decision section is on)
+	$: showTopDecisionsParam = $page.url.searchParams.get('showTopDecisions');
+	$: showTopDecisions = showTopDecisionsParam !== null
+		? showTopDecisionsParam !== 'false'
+		: data.options?.showTopDecisions !== false;
+
 	// Read vFill from URL parameter (default: true) - controls elastic spacer row
 	// vFill=true: 1fr elastic row pushes leaders to bottom
 	// vFill=false: 1.5em fixed height spacer
@@ -171,7 +184,7 @@
 			sessionStatus={data.sessionStatus}
 			competition={data.competition}
 			breakTitle={data.breakTitle}
-			showDecisionLights={true}
+			showDecisionLights={showTopDecisions}
 			showTimer={true}
 			compactMode={false}
 		/>
@@ -204,6 +217,22 @@
 			{/if}
 		{/if}
 	</main>
+
+	{#if showDecisionSection && data.status !== 'waiting' && data.attemptBarClass !== 'hide-because-null-session'}
+		<DecisionBlockBar
+			decisionBlock={data.decisionBlock}
+			mode={data.mode || 'WAIT'}
+			currentAttempt={data.currentAttempt}
+			currentAthleteAgeGroups={data.currentAthleteAgeGroups || ''}
+			breakText={data.decisionBlockBreakText || ''}
+			timerData={data.timer}
+			breakTimerData={data.breakTimer}
+			labels={data.decisionBlockLabels || {}}
+			options={data.decisionBlockOptions || {}}
+			competition={data.competition}
+			serverClockOffsetMs={data.serverClockOffsetMs || 0}
+		/>
+	{/if}
 </div>
 
 {#if inactivityExpired}

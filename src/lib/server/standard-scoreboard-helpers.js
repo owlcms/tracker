@@ -12,9 +12,9 @@ import { competitionHub } from '$lib/server/competition-hub.js';
 import { extractRecordsFromUpdate } from '$lib/server/records-extractor.js';
 import { getFlagUrl } from '$lib/server/flag-resolver.js';
 import { buildCacheKey, registerCache } from '$lib/server/cache-utils.js';
-import { extractTimerAndDecisionState } from '$lib/server/timer-decision-helpers.js';
+import { extractTimerAndDecisionState, extractDecisionDisplayDefaults } from '$lib/server/timer-decision-helpers.js';
 import { computeAttemptBarVisibility, hasCurrentAthlete } from '$lib/server/attempt-bar-visibility.js';
-import { formatMessage } from '@owlcms/tracker-core/utils';
+import { formatMessage, buildDecisionBlockLabels, snapshotDecisionBlock } from '@owlcms/tracker-core/utils';
 
 // Import hub-bound presentation helpers from shared module
 import { 
@@ -117,6 +117,8 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 	const fopUpdate = getFopUpdate(fopName);
 	const databaseState = getDatabaseState();
 	const showRecords = options.showRecords ?? true;
+	const showDecisionSection = options.showDecisionSection !== false && options.showDecisionSection !== 'false';
+	const showTopDecisions = options.showTopDecisions !== false && options.showTopDecisions !== 'false';
 	const learningMode = process.env.LEARNING_MODE === 'true' ? 'enabled' : 'disabled';
 	const sessionStatus = competitionHub.getSessionStatus({ fopName });
 	
@@ -126,6 +128,13 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 	
 	// Extract timer, break timer, decision, and display mode using shared helper
 	const { timer, breakTimer, decision, displayMode, activeTimer } = extractTimerAndDecisionState(fopUpdate, lang);
+	const decisionDisplayDefaults = extractDecisionDisplayDefaults(fopUpdate);
+	const decisionBlock = fopUpdate?.decisionBlock || snapshotDecisionBlock(null);
+	const decisionBlockOptions = {
+		showStopwatch: decisionDisplayDefaults.decisionSectionStopwatch === true,
+		showAgeGroups: decisionDisplayDefaults.decisionSectionShowAgeGroups === true
+	};
+	const currentAthleteAgeGroups = fopUpdate?.currentAthleteAgeGroups || '';
 	
 	// Determine if timer should be shown (active competition state)
 	const hasActiveSession = fopUpdate?.fopState && fopUpdate.fopState !== 'INACTIVE';
@@ -178,6 +187,12 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 	
 	// Compute break title (group name) for break mode display
 	const breakTitle = isBreakMode(mode) ? inferGroupName(fopUpdate, lang) : null;
+	const breakTypeUpper = String(fopUpdate?.breakType || '').toUpperCase();
+	const isJuryOrChallengeBreak = breakTypeUpper === 'JURY' || breakTypeUpper === 'CHALLENGE';
+	const decisionBlockBreakText = isBreakMode(mode) && !isJuryOrChallengeBreak
+		? inferBreakMessage(fopUpdate?.breakType, fopUpdate?.ceremonyType, lang)
+		: '';
+	const decisionBlockLabels = buildDecisionBlockLabels(translations);
 	
 	// Compute sessionStatusMessage
 	let sessionStatusMessage = null;
@@ -225,6 +240,12 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 			timer,
 			breakTimer,
 			decision,
+			decisionBlock,
+			decisionBlockBreakText,
+			decisionBlockOptions,
+			currentAthleteAgeGroups,
+			mode,
+			breakType: fopUpdate?.breakType || null,
 			displayMode,
 			sessionStatus,
 			sessionStatusMessage,
@@ -233,6 +254,7 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 			personalRecords,
 			recordStatus,
 			attemptBarClass,
+			options: { showRecords, showDecisionSection, showTopDecisions },
 			learningMode
 		};
 	}
@@ -252,6 +274,13 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 			timer,
 			breakTimer,
 			decision,
+			decisionBlock,
+			decisionBlockBreakText,
+			decisionBlockOptions,
+			decisionBlockLabels,
+			currentAthleteAgeGroups,
+			mode,
+			breakType: fopUpdate?.breakType || null,
 			displayMode,
 			records,
 			personalRecords,
@@ -267,7 +296,7 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 			attemptBarClass,
 			lastUpdate: fopUpdate?.lastUpdate || Date.now(),
 			learningMode,
-			options: { showRecords },
+			options: { showRecords, showDecisionSection, showTopDecisions },
 			resultRows: 0,
 			leaderRows: 0,
 			headers,
@@ -303,6 +332,12 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 		timer,
 		breakTimer,
 		decision,
+		decisionBlock,
+		decisionBlockBreakText,
+		decisionBlockOptions,
+		decisionBlockLabels,
+		currentAthleteAgeGroups,
+		mode,
 		displayMode,
 		sessionStatusMessage,
 		breakTitle,
@@ -327,7 +362,7 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 		message,
 		attemptBarClass,
 		lastUpdate: fopUpdate?.lastUpdate || Date.now(),
-		options: { showRecords },
+		options: { showRecords, showDecisionSection, showTopDecisions },
 		// translations,  // Remove full translation dict - use headers instead
 		headers, // Include pre-translated headers (only ~150 bytes)
 		inactivity // Pre-translated inactivity-timeout overlay strings
@@ -358,6 +393,7 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 		leaderRows: result.leaderRows,
 		lastUpdate: result.lastUpdate,
 		options: result.options,
+		decisionBlockLabels: result.decisionBlockLabels,
 		// translations: result.translations,  // Remove full translation dict
 		headers: result.headers, // Cache only pre-translated headers
 		inactivity: result.inactivity // Cache inactivity overlay strings

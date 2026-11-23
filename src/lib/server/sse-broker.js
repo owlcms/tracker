@@ -71,6 +71,7 @@ class SSEBroker {
         timer: eventData.timer,
         breakTimer: eventData.breakTimer,
         displayMode: eventData.displayMode,
+        decisionBlock: eventData.decisionBlock,
         timestamp: eventData.timestamp
       });
     });
@@ -82,6 +83,7 @@ class SSEBroker {
 		data: eventData.data,
         decision: eventData.decision,
         displayMode: eventData.displayMode,
+        decisionBlock: eventData.decisionBlock,
         timestamp: eventData.timestamp
       });
     });

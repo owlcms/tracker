@@ -21,6 +21,8 @@
 	let latestDecisionSse = null;
 	let latestDecisionFopUpdate = null;
 	let latestDecisionDisplayMode = null;
+	let latestDecisionBlockSse = null;
+	let serverClockOffsetMs = 0;
 	
 	// Check if this plugin manages its own SSE or doesn't need live updates
 	// - documents: static content, no live updates needed
@@ -141,6 +143,11 @@
 						nextData = { ...nextData, displayMode: latestDecisionDisplayMode };
 					}
 				}
+				if (latestDecisionBlockSse != null
+					&& (latestDecisionBlockSse.sequence ?? -1) > (nextData.decisionBlock?.sequence ?? -1)) {
+					nextData = { ...nextData, decisionBlock: latestDecisionBlockSse };
+				}
+				nextData = { ...nextData, serverClockOffsetMs };
 
 				scoreboardData = nextData;
 				scoreboardError = null;
@@ -202,6 +209,10 @@
 				// Per-message tracking silenced to reduce log noise during load tests.
 				// console.log('[Scoreboard] SSE received:', message.type, message.fop || '', JSON.stringify(message.timer || message.decision || {}).substring(0, 100));
 				
+				if (typeof message.timestamp === 'number' && Number.isFinite(message.timestamp)) {
+					serverClockOffsetMs = message.timestamp - Date.now();
+				}
+
 				// Handle translation updates
 				if (message.type === 'translations') {
 					translations.setLocale(message.locale, message.data);
@@ -211,12 +222,17 @@
 				// Handle timer events directly (no API fetch)
 				// Server provides displayMode computed with full FOP context
 				if (message.type === 'timer' && message.fop === data.fopName) {
+					if (message.decisionBlock) {
+						latestDecisionBlockSse = message.decisionBlock;
+					}
 					if (scoreboardData) {
 						scoreboardData = {
 							...scoreboardData,
 							timer: message.timer,
 							breakTimer: message.breakTimer ?? scoreboardData.breakTimer,
-							displayMode: message.displayMode
+							displayMode: message.displayMode,
+							decisionBlock: message.decisionBlock ?? scoreboardData.decisionBlock,
+							serverClockOffsetMs
 						};
 					}
 					return;
@@ -230,6 +246,9 @@
 					latestDecisionSse = message.decision;
 					latestDecisionFopUpdate = message.data ?? null;
 					latestDecisionDisplayMode = message.displayMode;
+					if (message.decisionBlock) {
+						latestDecisionBlockSse = message.decisionBlock;
+					}
 					if (scoreboardData) {
 						// A NEW record is announced only on the decision frame, so apply the
 						// green banner directly (no API round-trip). The "attempt" banner is
@@ -246,6 +265,9 @@
 							fopUpdate: message.data ?? scoreboardData.fopUpdate,
 							decision: message.decision,
 							displayMode: message.displayMode,
+							decisionBlock: message.decisionBlock ?? scoreboardData.decisionBlock,
+							mode: message.data?.mode ?? scoreboardData.mode,
+							serverClockOffsetMs,
 							recordStatus
 						};
 					}
