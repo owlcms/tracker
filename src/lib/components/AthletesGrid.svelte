@@ -16,7 +16,8 @@
 	$: showMedalKgUp = displaySettings.showMedalKgUp === true;
 	$: hasMedalRank = displaySettings.hasMedalRank === true;
 	$: showRank = hasMedalRank || showTotalRank;
-	$: bornHeader = showMedalScore ? (headers.age || '!!Age') : (headers.birth || '!!Born');
+	$: showAge = displaySettings.showAge === true;
+	$: bornHeader = showAge ? (headers.age || '!!Age') : (headers.birth || '!!Born');
 	$: snatchGroupSpan = showLiftRanks ? 5 : 4;
 	$: snatchSpacerCol = 6;
 	$: snatchAttempt1Col = 7;
@@ -199,7 +200,7 @@
 			<div class="cell start-num" role="gridcell">{athlete.startNumber}</div>
 				<div class="cell name" role="gridcell"><span class="name-text">{athlete.fullName}</span></div>
 				<div class="cell cat" role="gridcell">{athlete.category || ''}</div>
-				<div class="cell born" role="gridcell">{showMedalScore ? (athlete.age || '') : (athlete.yearOfBirth || '')}</div>
+				<div class="cell born" role="gridcell">{showAge ? (athlete.age || '') : (athlete.yearOfBirth || '')}</div>
 				<div class="cell team-name" role="gridcell">
 					{#if shouldRenderFlag(athlete.flagUrl)}
 						<img src={athlete.flagUrl} alt={athlete.teamName} class="team-flag" />
@@ -239,10 +240,10 @@
 				{#if showMedalScore}
 					<div class="cell score" role="gridcell">{athlete.medalScore || ''}</div>
 				{/if}
-				{#if showMedalKgTop && athlete.medalScore}
+				{#if showMedalKgTop}
 					<div class="cell delta kg-top" role="gridcell">{athlete.medalKgTop || ''}</div>
 				{/if}
-				{#if showMedalKgUp && athlete.medalScore}
+				{#if showMedalKgUp}
 					<div class="cell delta kg-up" role="gridcell">{athlete.medalKgUp || ''}</div>
 				{/if}
 				{#if showRank}
@@ -276,7 +277,7 @@
 					<div class="cell start-num" role="gridcell">{leader.subCategory || ''}</div>
 					<div class="cell name" role="gridcell"><span class="name-text">{leader.fullName || ''}</span></div>
 					<div class="cell cat" role="gridcell">{leader.category || ''}</div>
-					<div class="cell born" role="gridcell">{showMedalScore ? (leader.age || '') : (leader.yearOfBirth || '')}</div>
+					<div class="cell born" role="gridcell">{showAge ? (leader.age || '') : (leader.yearOfBirth || '')}</div>
 					<div class="cell team-name" role="gridcell">
 						{#if shouldRenderFlag(leader.flagUrl)}
 							<img class="team-flag" src={leader.flagUrl} alt={leader.teamName || ''} />
@@ -316,10 +317,10 @@
 					{#if showMedalScore}
 						<div class="cell score" role="gridcell">{leader.medalScore || ''}</div>
 					{/if}
-					{#if showMedalKgTop && leader.medalScore}
+					{#if showMedalKgTop}
 						<div class="cell delta kg-top" role="gridcell">{leader.medalKgTop || ''}</div>
 					{/if}
-					{#if showMedalKgUp && leader.medalScore}
+					{#if showMedalKgUp}
 						<div class="cell delta kg-up" role="gridcell">{leader.medalKgUp || ''}</div>
 					{/if}
 					{#if showRank}

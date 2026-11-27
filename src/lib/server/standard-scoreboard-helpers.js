@@ -14,6 +14,7 @@ import { getFlagUrl } from '$lib/server/flag-resolver.js';
 import { buildCacheKey, registerCache } from '$lib/server/cache-utils.js';
 import { extractTimerAndDecisionState, extractDecisionDisplayDefaults } from '$lib/server/timer-decision-helpers.js';
 import { computeAttemptBarVisibility, hasCurrentAthlete } from '$lib/server/attempt-bar-visibility.js';
+import { extractDisplaySettings } from '$lib/server/scoreboard-display-settings.js';
 import { formatMessage, buildDecisionBlockLabels, snapshotDecisionBlock } from '@owlcms/tracker-core/utils';
 
 // Import hub-bound presentation helpers from shared module
@@ -509,7 +510,6 @@ function stripToDisplayFields(athlete) {
 		medalScore: athlete.medalScore,
 		medalKgTop: athlete.medalKgTop,
 		medalKgUp: athlete.medalKgUp,
-		medalKgDelta: athlete.medalKgDelta,
 		
 		// Visual state
 		classname: athlete.classname,
@@ -649,37 +649,6 @@ function extractLeaders(fopUpdate) {
 			};
 		})
 		.filter(Boolean);
-}
-
-/**
- * Extract display settings from fopUpdate
- */
-function extractDisplaySettings(fopUpdate, athletes = [], leaders = [], options = {}) {
-	const rankEntries = [
-		...(Array.isArray(athletes) ? athletes : []),
-		...(Array.isArray(leaders) ? leaders : [])
-	];
-	const hasMedalRank = rankEntries.some((entry) =>
-		entry?.medalRank !== undefined &&
-		entry?.medalRank !== null &&
-		entry?.medalRank !== ''
-	);
-
-	return {
-		showTotalRank: fopUpdate?.showTotalRank === 'true',
-		showSinclair: fopUpdate?.showSinclair === 'true',
-		showLiftRanks: fopUpdate?.showLiftRanks === 'true',
-		showSinclairRank: fopUpdate?.showSinclairRank === 'true',
-		showMedalScore: fopUpdate?.showMedalScore === 'true',
-		medalScoringName: fopUpdate?.medalScoringName || '',
-		showMedalKgTop: options?.showKgLeader !== undefined
-			? (fopUpdate?.showMedalScore === 'true' && options.showKgLeader === true)
-			: (fopUpdate?.showMedalScore === 'true' && fopUpdate?.showKgLeader === 'true'),
-		showMedalKgUp: options?.showKgDelta !== undefined
-			? (fopUpdate?.showMedalScore === 'true' && options.showKgDelta === true)
-			: (fopUpdate?.showMedalScore === 'true' && fopUpdate?.showKgDelta === 'true'),
-		hasMedalRank
-	};
 }
 
 /**

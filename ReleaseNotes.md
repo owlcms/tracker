@@ -3,6 +3,13 @@
 
 > #### ⚠ It is recommended to update OWLCMS to the latest stable version when updating Tracker.
 
+## 3.1
+- 3.1.0: **Works with OWLCMS 69.0 and 69.1.** OWLCMS 69.1 sends fields that OWLCMS 69.0 does not; the scoreboards show the columns that need them only when the fields are present. With OWLCMS 69.0, scoreboards show the score and the medal rank, without the kg columns and with the year of birth instead of the Age. Uses tracker-core 2.0.1.
+- 3.1.0: The standard, lifting order and rankings scoreboards show score-based medals as OWLCMS does: the score column (e.g. Q-masters), the medal rank, and the Age instead of the year of birth. Total-medal athletes in the same session keep their Total rank and a blank score.
+- 3.1.0: New options `showKgLeader` (kg to take the lead) and `showKgDelta` (kg to move up one rank), both on by default (OWLCMS 69.1).
+- 3.1.0: The rankings scoreboard orders score-medal categories by medal rank.
+- 3.1.0: With OWLCMS 69.1, the snatch and clean & jerk rank columns are hidden when no displayed championship awards lift medals.
+
 ## 3.0
 - 3.0.0: **Requires OWLCMS 69.** The tracker now uses tracker-core 2.0, which only accepts protocol 69.0.0 or later. OWLCMS 66, 67 and 68 send protocol 64.0.0: the tracker shows a "Protocol Version Mismatch" message on its home page and ignores their data. Update OWLCMS and the tracker together.
 - 3.0.0: Scoreboards now display a decision block same as OWLCMS 69.
