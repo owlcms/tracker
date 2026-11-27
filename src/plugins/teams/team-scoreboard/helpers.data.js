@@ -2202,11 +2202,15 @@ export function getScoreboardData(fopName = 'A', options = {}) {
 		allAthletes: athletesWithFlags,
 		stats: getCompetitionStats(databaseState),
 		headers,
-		displaySettings: fopUpdate?.showTotalRank || fopUpdate?.showSinclair ? {
+		displaySettings: fopUpdate?.showTotalRank || fopUpdate?.showSinclair || fopUpdate?.showMedalScore ? {
 			showTotalRank: fopUpdate.showTotalRank === 'true',
 			showSinclair: fopUpdate.showSinclair === 'true',
 			showLiftRanks: fopUpdate.showLiftRanks === 'true',
-			showSinclairRank: fopUpdate.showSinclairRank === 'true'
+			showSinclairRank: fopUpdate.showSinclairRank === 'true',
+			showMedalScore: fopUpdate.showMedalScore === 'true',
+			medalScoringName: fopUpdate.medalScoringName || '',
+			showMedalKgTop: fopUpdate.showKgLeader === 'true',
+			showMedalKgUp: fopUpdate.showKgDelta === 'true'
 		} : {},
 		isBreak: fopUpdate?.break === 'true' || isBreakMode(mode),
 		breakType: fopUpdate?.breakType,

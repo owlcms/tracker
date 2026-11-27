@@ -11,6 +11,12 @@
 	$: displaySettings = data.displaySettings || {};
 	$: showLiftRanks = displaySettings.showLiftRanks === true;
 	$: showTotalRank = displaySettings.showTotalRank !== false;
+	$: showMedalScore = displaySettings.showMedalScore === true;
+	$: showMedalKgTop = displaySettings.showMedalKgTop === true;
+	$: showMedalKgUp = displaySettings.showMedalKgUp === true;
+	$: hasMedalRank = displaySettings.hasMedalRank === true;
+	$: showRank = hasMedalRank || showTotalRank;
+	$: bornHeader = showMedalScore ? (headers.age || '!!Age') : (headers.birth || '!!Born');
 	$: snatchGroupSpan = showLiftRanks ? 5 : 4;
 	$: snatchSpacerCol = 6;
 	$: snatchAttempt1Col = 7;
@@ -26,7 +32,14 @@
 	$: cjRankCol = showLiftRanks ? 17 : null;
 	$: totalSpacerCol = showLiftRanks ? 18 : 16;
 	$: totalCol = showLiftRanks ? 19 : 17;
-	$: totalRankCol = showLiftRanks ? 20 : 18;
+	$: scoreCol = showMedalScore ? totalCol + 1 : null;
+	$: kgTopCol = showMedalKgTop ? (scoreCol ? scoreCol + 1 : totalCol + 1) : null;
+	$: kgUpCol = showMedalKgUp
+		? (kgTopCol ? kgTopCol + 1 : (scoreCol ? scoreCol + 1 : totalCol + 1))
+		: null;
+	$: rankCol = showRank
+		? (kgUpCol ? kgUpCol + 1 : (kgTopCol ? kgTopCol + 1 : (scoreCol ? scoreCol + 1 : totalCol + 1)))
+		: null;
 	$: gridTemplateColumns = [
 		'var(--col-start)',
 		'var(--col-name)',
@@ -43,7 +56,10 @@
 		...(showLiftRanks ? ['var(--col-rank)'] : []),
 		'var(--col-gap)',
 		'var(--col-total)',
-		...(showTotalRank ? ['var(--col-total-rank)'] : [])
+		...(showMedalScore ? ['var(--col-score)'] : []),
+		...(showMedalKgTop ? ['var(--col-delta)'] : []),
+		...(showMedalKgUp ? ['var(--col-delta)'] : []),
+		...(showRank ? ['var(--col-total-rank)'] : [])
 	].join(' ');
 	
 	// Helper functions (same as in parent component)
@@ -122,7 +138,7 @@
 		<div class="cell header col-start span-two" role="columnheader" style:grid-column="1">{headers.start || '!!Start'}</div>
 		<div class="cell header col-name span-two" role="columnheader" style:grid-column="2">{headers.name || '!!Name'}</div>
 		<div class="cell header col-cat span-two" role="columnheader" style:grid-column="3">{headers.category || '!!Cat.'}</div>
-		<div class="cell header col-born span-two" role="columnheader" style:grid-column="4">{headers.birth || '!!Born'}</div>
+		<div class="cell header col-born span-two" role="columnheader" style:grid-column="4">{bornHeader}</div>
 		<div class="cell header col-team span-two" role="columnheader" style:grid-column="5">{headers.team || '!!Team'}</div>
 		<div class="cell header v-spacer v-spacer-snatch span-two" aria-hidden="true" style:grid-column={String(snatchSpacerCol)}></div>
 		<div class="cell header col-group col-group-snatch" role="columnheader" style={`grid-column: ${snatchAttempt1Col} / span ${snatchGroupSpan};`}>{headers.snatch || '!!Snatch'}</div>
@@ -130,8 +146,17 @@
 		<div class="cell header col-group col-group-cj" role="columnheader" style={`grid-column: ${cjAttempt1Col} / span ${snatchGroupSpan};`}>{@html headers.cleanJerk || '!!Clean &amp; Jerk'}</div>
 		<div class="cell header v-spacer v-spacer-total span-two" aria-hidden="true" style:grid-column={String(totalSpacerCol)}></div>
 		<div class="cell header col-total span-two" role="columnheader" style:grid-column={String(totalCol)}>{headers.total || '!!Total'}</div>
-		{#if showTotalRank}
-			<div class="cell header col-rank total-rank span-two" role="columnheader" style:grid-column={String(totalRankCol)}>{headers.rank || '!!Rank'}</div>
+		{#if showMedalScore}
+			<div class="cell header col-score span-two" role="columnheader" style:grid-column={String(scoreCol)}>{displaySettings.medalScoringName || headers.score || '!!Score'}</div>
+		{/if}
+		{#if showMedalKgTop}
+			<div class="cell header col-delta kg-top span-two" role="columnheader" style:grid-column={String(kgTopCol)}>{headers.deltaTop || '!!∆kg Top'}</div>
+		{/if}
+		{#if showMedalKgUp}
+			<div class="cell header col-delta kg-up span-two" role="columnheader" style:grid-column={String(kgUpCol)}>{headers.deltaUp || '!!∆kg Up'}</div>
+		{/if}
+		{#if showRank}
+			<div class="cell header col-rank total-rank span-two" role="columnheader" style:grid-column={String(rankCol)}>{headers.rank || '!!Rank'}</div>
 		{/if}
 	</div>
 	<div class="grid-row header header-secondary" role="row">
@@ -154,8 +179,8 @@
 		{/if}
 		<div class="cell header v-spacer v-spacer-total" aria-hidden="true" style:grid-column={String(totalSpacerCol)}></div>
 		<div class="cell header col-total-portrait" role="columnheader" style:grid-column={String(totalCol)}>{headers.total || '!!Total'}</div>
-		{#if showTotalRank}
-			<div class="cell header col-rank-portrait total-rank" role="columnheader" style:grid-column={String(totalRankCol)}>{headers.rank || '!!Rank'}</div>
+		{#if showRank}
+			<div class="cell header col-rank-portrait total-rank" role="columnheader" style:grid-column={String(rankCol)}>{headers.rank || '!!Rank'}</div>
 		{/if}
 	</div>
 
@@ -174,7 +199,7 @@
 			<div class="cell start-num" role="gridcell">{athlete.startNumber}</div>
 				<div class="cell name" role="gridcell"><span class="name-text">{athlete.fullName}</span></div>
 				<div class="cell cat" role="gridcell">{athlete.category || ''}</div>
-				<div class="cell born" role="gridcell">{athlete.yearOfBirth || ''}</div>
+				<div class="cell born" role="gridcell">{showMedalScore ? (athlete.age || '') : (athlete.yearOfBirth || '')}</div>
 				<div class="cell team-name" role="gridcell">
 					{#if shouldRenderFlag(athlete.flagUrl)}
 						<img src={athlete.flagUrl} alt={athlete.teamName} class="team-flag" />
@@ -211,8 +236,17 @@
 				{/if}
 				<div class="cell v-spacer" aria-hidden="true"></div>
 				<div class="cell total" role="gridcell">{athlete.total || '-'}</div>
-				{#if showTotalRank}
-					<div class="cell rank total-rank" role="gridcell">{athlete.totalRank || '-'}</div>
+				{#if showMedalScore}
+					<div class="cell score" role="gridcell">{athlete.medalScore || ''}</div>
+				{/if}
+				{#if showMedalKgTop && athlete.medalScore}
+					<div class="cell delta kg-top" role="gridcell">{athlete.medalKgTop || ''}</div>
+				{/if}
+				{#if showMedalKgUp && athlete.medalScore}
+					<div class="cell delta kg-up" role="gridcell">{athlete.medalKgUp || ''}</div>
+				{/if}
+				{#if showRank}
+					<div class="cell rank total-rank" role="gridcell">{hasMedalRank ? (athlete.medalRank || '-') : (athlete.totalRank || '-')}</div>
 				{/if}
 			</div>
 		{/if}
@@ -242,7 +276,7 @@
 					<div class="cell start-num" role="gridcell">{leader.subCategory || ''}</div>
 					<div class="cell name" role="gridcell"><span class="name-text">{leader.fullName || ''}</span></div>
 					<div class="cell cat" role="gridcell">{leader.category || ''}</div>
-					<div class="cell born" role="gridcell">{leader.yearOfBirth || ''}</div>
+					<div class="cell born" role="gridcell">{showMedalScore ? (leader.age || '') : (leader.yearOfBirth || '')}</div>
 					<div class="cell team-name" role="gridcell">
 						{#if shouldRenderFlag(leader.flagUrl)}
 							<img class="team-flag" src={leader.flagUrl} alt={leader.teamName || ''} />
@@ -279,8 +313,17 @@
 					{/if}
 					<div class="cell v-spacer" aria-hidden="true"></div>
 					<div class="cell total" role="gridcell">{leader.total || '-'}</div>
-					{#if showTotalRank}
-						<div class="cell rank total-rank" role="gridcell">{leader.totalRank || '-'}</div>
+					{#if showMedalScore}
+						<div class="cell score" role="gridcell">{leader.medalScore || ''}</div>
+					{/if}
+					{#if showMedalKgTop && leader.medalScore}
+						<div class="cell delta kg-top" role="gridcell">{leader.medalKgTop || ''}</div>
+					{/if}
+					{#if showMedalKgUp && leader.medalScore}
+						<div class="cell delta kg-up" role="gridcell">{leader.medalKgUp || ''}</div>
+					{/if}
+					{#if showRank}
+						<div class="cell rank total-rank" role="gridcell">{hasMedalRank ? (leader.medalRank || '-') : (leader.totalRank || '-')}</div>
 					{/if}
 				</div>
 			{/if}
@@ -299,6 +342,8 @@
 		--col-attempt: 4.4rem;
 		--col-best: 4.4rem;
 		--col-total: 4.9rem;
+		--col-score: 7.2rem;
+		--col-delta: 6.2rem;
 		--col-rank: 4.9rem;
 		--col-total-rank: var(--col-total);
 		/* Header row heights: keep these in sync with grid-template-rows and sticky offsets */
@@ -335,10 +380,6 @@
 		background: #3a3a3a;
 		border-color: #555;
 		font-weight: bold;
-	}
-
-	.header-primary > .cell.header {
-		text-transform: uppercase;
 	}
 
 	.header-secondary > .cell.header {
@@ -471,12 +512,16 @@
 
 	.cell.best,
 	.cell.total,
+	.cell.score,
+	.cell.delta,
 	.cell.rank {
 		background: #2a2a2a;
 		font-weight: bold;
 	}
 
 	.cell.total,
+	.cell.score,
+	.cell.delta,
 	.cell.rank {
 		color: #fff;
 	}

@@ -213,6 +213,10 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 		snatch: competitionHub.translate('Snatch', lang),
 		cleanJerk: competitionHub.translate('Clean_and_Jerk', lang),
 		total: competitionHub.translate('Total', lang),
+		age: competitionHub.translate('Age', lang),
+		score: competitionHub.translate('Score', lang),
+		deltaTop: competitionHub.translate('Scoreboard.DeltaTop', lang),
+		deltaUp: competitionHub.translate('Scoreboard.DeltaUp', lang),
 		rank: competitionHub.translate('Rank', lang),
 		best: competitionHub.translate('Scoreboard.Best', lang),
 		leaders: getLeadersHeader(databaseState, lang),
@@ -347,7 +351,7 @@ export function getScoreboardData(scoreboardType, fopName = 'A', options = {}) {
 		// rankedAthletes: athletesWithFlags,       // Remove duplicate
 		leaders,
 		stats,
-		displaySettings: extractDisplaySettings(fopUpdate),
+		displaySettings: extractDisplaySettings(fopUpdate, athletesWithFlags, leaders, options),
 		isBreak: fopUpdate?.break === 'true' || false,
 		breakType: fopUpdate?.breakType,
 		sessionStatus,
@@ -498,6 +502,14 @@ function stripToDisplayFields(athlete) {
 		snatchRank: athlete.snatchRank,
 		cleanJerkRank: athlete.cleanJerkRank,
 		totalRank: athlete.totalRank,
+		medalRank: athlete.medalRank,
+
+		// Medal score and independent kg differentials
+		age: athlete.age,
+		medalScore: athlete.medalScore,
+		medalKgTop: athlete.medalKgTop,
+		medalKgUp: athlete.medalKgUp,
+		medalKgDelta: athlete.medalKgDelta,
 		
 		// Visual state
 		classname: athlete.classname,
@@ -549,10 +561,18 @@ function sortByRank(athletes) {
 		if (catA !== catB) {
 			return catA.localeCompare(catB);
 		}
-		
-		const rankField = cjStarted ? 'totalRank' : 'snatchRank';
-		const rankA = a[rankField] === '-' ? Infinity : parseInt(a[rankField]) || Infinity;
-		const rankB = b[rankField] === '-' ? Infinity : parseInt(b[rankField]) || Infinity;
+
+		const rankFieldFor = (athlete) => {
+			if (!cjStarted) return 'snatchRank';
+			if (athlete.medalRank !== undefined && athlete.medalRank !== null && athlete.medalRank !== '') {
+				return 'medalRank';
+			}
+			return 'totalRank';
+		};
+		const rankAField = rankFieldFor(a);
+		const rankBField = rankFieldFor(b);
+		const rankA = a[rankAField] === '-' ? Infinity : parseInt(a[rankAField]) || Infinity;
+		const rankB = b[rankBField] === '-' ? Infinity : parseInt(b[rankBField]) || Infinity;
 		return rankA - rankB;
 	});
 	
@@ -568,8 +588,10 @@ function sortByRank(athletes) {
 			}
 			result.push({
 				...athlete,
-				displayRank: cjStarted 
-					? (athlete.totalRank !== '-' ? athlete.totalRank : '-')
+				displayRank: cjStarted
+					? (athlete.medalRank !== undefined && athlete.medalRank !== null && athlete.medalRank !== ''
+						? (athlete.medalRank !== '-' ? athlete.medalRank : '-')
+						: (athlete.totalRank !== '-' ? athlete.totalRank : '-'))
 					: (athlete.snatchRank !== '-' ? athlete.snatchRank : '-')
 			});
 			lastCategory = athlete.category;
@@ -581,8 +603,10 @@ function sortByRank(athletes) {
 	// Single category - just add displayRank
 	return sorted.map(athlete => ({
 		...athlete,
-		displayRank: cjStarted 
-			? (athlete.totalRank !== '-' ? athlete.totalRank : '-')
+		displayRank: cjStarted
+			? (athlete.medalRank !== undefined && athlete.medalRank !== null && athlete.medalRank !== ''
+				? (athlete.medalRank !== '-' ? athlete.medalRank : '-')
+				: (athlete.totalRank !== '-' ? athlete.totalRank : '-'))
 			: (athlete.snatchRank !== '-' ? athlete.snatchRank : '-')
 	}));
 }
@@ -630,14 +654,31 @@ function extractLeaders(fopUpdate) {
 /**
  * Extract display settings from fopUpdate
  */
-function extractDisplaySettings(fopUpdate) {
-	if (!fopUpdate?.showTotalRank && !fopUpdate?.showSinclair) return {};
-	
+function extractDisplaySettings(fopUpdate, athletes = [], leaders = [], options = {}) {
+	const rankEntries = [
+		...(Array.isArray(athletes) ? athletes : []),
+		...(Array.isArray(leaders) ? leaders : [])
+	];
+	const hasMedalRank = rankEntries.some((entry) =>
+		entry?.medalRank !== undefined &&
+		entry?.medalRank !== null &&
+		entry?.medalRank !== ''
+	);
+
 	return {
-		showTotalRank: fopUpdate.showTotalRank === 'true',
-		showSinclair: fopUpdate.showSinclair === 'true',
-		showLiftRanks: fopUpdate.showLiftRanks === 'true',
-		showSinclairRank: fopUpdate.showSinclairRank === 'true'
+		showTotalRank: fopUpdate?.showTotalRank === 'true',
+		showSinclair: fopUpdate?.showSinclair === 'true',
+		showLiftRanks: fopUpdate?.showLiftRanks === 'true',
+		showSinclairRank: fopUpdate?.showSinclairRank === 'true',
+		showMedalScore: fopUpdate?.showMedalScore === 'true',
+		medalScoringName: fopUpdate?.medalScoringName || '',
+		showMedalKgTop: options?.showKgLeader !== undefined
+			? (fopUpdate?.showMedalScore === 'true' && options.showKgLeader === true)
+			: (fopUpdate?.showMedalScore === 'true' && fopUpdate?.showKgLeader === 'true'),
+		showMedalKgUp: options?.showKgDelta !== undefined
+			? (fopUpdate?.showMedalScore === 'true' && options.showKgDelta === true)
+			: (fopUpdate?.showMedalScore === 'true' && fopUpdate?.showKgDelta === 'true'),
+		hasMedalRank
 	};
 }
 
