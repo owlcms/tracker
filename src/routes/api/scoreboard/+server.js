@@ -108,7 +108,7 @@ export async function GET({ url, request }) {
 		const options = buildOptions({
 			scoreboard,
 			url,
-			reservedKeys: new Set(['type', 'fop', 'clientId']),
+			reservedKeys: new Set(['type', 'fop', 'clientId', 'noExpiry']),
 			registry: scoreboardRegistry
 		});
 

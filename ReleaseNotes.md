@@ -5,6 +5,7 @@
 
 ## 2.22
 
+- 2.22.6: Scoreboard URLs accept a hidden `noExpiry=true` parameter (for vMix, OBS, or kiosk displays) that disables the inactivity overlay, hidden-tab SSE pause, and server-side idle reaping.
 - 2.22.5: Security: the Docker image is rebuilt on the latest `node:22-alpine` base to pick up the Node.js 22.23.4 security release (October 21, 2026).  fly.io users should update.
 - 2.22.4: Medal Count uses each OWLCMS championship's medal settings (all three events, total only, or lifts only) and lists the lifts per championship when settings differ. Removed the obsolete medal override options.
 - 2.22.3: Medal count, referee assignments, and jury replays: session dates and times sent as ISO strings are now displayed and sorted correctly.

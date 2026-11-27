@@ -21,6 +21,7 @@ export async function GET({ request, url }) {
   // Scoreboard type (e.g. lifting-order, rankings, start-order) used to count
   // how many people are watching each scoreboard.
   const scoreboardType = url.searchParams.get('sb') || null;
+  const noExpiry = url.searchParams.get('noExpiry') === 'true';
 
   const modeLabel = mode ? `, mode: ${mode}` : '';
   logger.debug(`[SSE] New client connection: ${connectionId} (clientId: ${clientId || 'none'}, language: ${language}, FOP: ${fopName || 'global'}, scoreboard: ${scoreboardType || 'none'}${modeLabel})`);
@@ -86,6 +87,7 @@ export async function GET({ request, url }) {
       unregisterClient = sseBroker.registerClient(send, connectionId, fopName, typeFilter, {
         clientId,
         scoreboardType,
+        noExpiry,
         close: cleanup
       });
       

@@ -2,7 +2,7 @@
 	import { createTimer } from '$lib/timer-logic.js';
 	import { page } from '$app/stores';
 	import { onMount, onDestroy } from 'svelte';
-	import { disconnectSSE } from '$lib/sse-client.js';
+	import { disconnectSSE, isNoExpiryEnabled } from '$lib/sse-client.js';
 	import RecordsSection from '$lib/components/RecordsSection.svelte';
 	import CurrentAttemptBar from '$lib/components/CurrentAttemptBar.svelte';
 	import AthletesGrid from '$lib/components/AthletesGrid.svelte';
@@ -42,6 +42,7 @@
 	let inactivityExpired = false;
 	let inactivityCheckId = null;
 
+	$: noExpiry = isNoExpiryEnabled($page.url.searchParams);
 	$: inactivityStrings = data.inactivity || {};
 
 	function markCompetitionActivity() {
@@ -51,7 +52,7 @@
 	}
 
 	function checkInactivity() {
-		if (inactivityExpired) return;
+		if (noExpiry || inactivityExpired) return;
 		if (hiddenStartedAt !== null && Date.now() - hiddenStartedAt >= HIDDEN_INACTIVITY_LIMIT_MS) {
 			console.warn(`[Inactivity] Expired: hidden too long (hiddenMs=${Date.now() - hiddenStartedAt})`);
 			inactivityExpired = true;
@@ -67,6 +68,7 @@
 	}
 
 	function checkVisibilityInactivity() {
+		if (noExpiry) return;
 		if (document.visibilityState === 'hidden') {
 			if (hiddenStartedAt === null) hiddenStartedAt = Date.now();
 			console.log(`[Inactivity] visibilitychange -> hidden (hiddenLimit=${HIDDEN_INACTIVITY_LIMIT_MS}ms)`);
@@ -93,9 +95,11 @@
 		timer.start(data.timer);
 
 		lastCompetitionActivity = Date.now();
-		// On wake / tab focus, evaluate immediately instead of waiting for the tick.
-		document.addEventListener('visibilitychange', checkVisibilityInactivity);
-		inactivityCheckId = setInterval(checkInactivity, INACTIVITY_CHECK_MS);
+		if (!noExpiry) {
+			// On wake / tab focus, evaluate immediately instead of waiting for the tick.
+			document.addEventListener('visibilitychange', checkVisibilityInactivity);
+			inactivityCheckId = setInterval(checkInactivity, INACTIVITY_CHECK_MS);
+		}
 	});
 	
 	onDestroy(() => {

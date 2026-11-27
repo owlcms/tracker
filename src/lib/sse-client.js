@@ -9,6 +9,7 @@ let connectionId = Math.random().toString(36).substr(2, 9);
 let language = 'en';
 let currentFop = null;
 let currentScoreboard = null;
+let currentNoExpiry = false;
 let clientCount = 0;
 let reconnectTimer = null;
 let reconnectDelayMs = 2000;
@@ -26,6 +27,16 @@ export function getClientId() {
 	return connectionId;
 }
 
+/**
+ * Hidden URL parameter (?noExpiry=true or ?noExpiry) for broadcast/kiosk views
+ * (e.g. vMix, OBS) that must never pause or expire when hidden or idle.
+ */
+export function isNoExpiryEnabled(searchParams) {
+	if (!searchParams || typeof searchParams.get !== 'function') return false;
+	const value = searchParams.get('noExpiry');
+	return value === 'true' || value === '';
+}
+
 function isHidden() {
 	return typeof document !== 'undefined' && document.visibilityState === 'hidden';
 }
@@ -41,7 +52,7 @@ function ensureVisibilityHook() {
 		if (document.visibilityState === 'visible' && reconnectWhenVisible && subscribers.size > 0) {
 			console.log(`[SSE] Reconnecting hidden-paused stream (clientId=${connectionId}, lang=${language}, fop=${currentFop || 'global'})`);
 			reconnectWhenVisible = false;
-			connectSSE(language, currentFop);
+			connectSSE(language, currentFop, currentScoreboard, currentNoExpiry);
 		}
 	});
 }
@@ -51,12 +62,14 @@ function ensureVisibilityHook() {
  * @param {string} lang - Language code (default: 'en')
  * @param {string|null} fop - FOP name to filter events (null = global events only)
  * @param {string|null} scoreboard - Scoreboard type (used for per-scoreboard watcher counts)
+ * @param {boolean} noExpiry - When true, keep stream alive and reconnecting even while hidden
  */
-export function connectSSE(lang = 'en', fop = null, scoreboard = currentScoreboard) {
+export function connectSSE(lang = 'en', fop = null, scoreboard = currentScoreboard, noExpiry = currentNoExpiry) {
+	const keepAlive = noExpiry === true;
 	// If a matching stream is already open or still connecting, reuse it. EventSource
 	// starts in CONNECTING, so treating only OPEN as reusable causes rapid close/reopen
 	// churn when subscribeSSE or Svelte reactive statements call connectSSE again.
-	if (eventSource && eventSource.readyState !== EventSource.CLOSED && language === lang && currentFop === fop && currentScoreboard === scoreboard) {
+	if (eventSource && eventSource.readyState !== EventSource.CLOSED && language === lang && currentFop === fop && currentScoreboard === scoreboard && currentNoExpiry === keepAlive) {
 		return eventSource;
 	}
 
@@ -74,13 +87,15 @@ export function connectSSE(lang = 'en', fop = null, scoreboard = currentScoreboa
 	
 	currentFop = fop;
 	currentScoreboard = scoreboard;
+	currentNoExpiry = keepAlive;
 	reconnectWhenVisible = false;
 	ensureVisibilityHook();
 	const fopParam = fop ? `&fop=${encodeURIComponent(fop)}` : '';
 	const sbParam = scoreboard ? `&sb=${encodeURIComponent(scoreboard)}` : '';
+	const noExpiryParam = keepAlive ? '&noExpiry=true' : '';
 	const clientParam = `&clientId=${encodeURIComponent(connectionId)}`;
-	console.log(`[SSE] Opening stream (clientId=${connectionId}, lang=${lang}, fop=${fop || 'global'}, sb=${scoreboard || 'none'})`);
-	eventSource = new EventSource(`/api/client-stream?lang=${lang}${fopParam}${sbParam}${clientParam}`);
+	console.log(`[SSE] Opening stream (clientId=${connectionId}, lang=${lang}, fop=${fop || 'global'}, sb=${scoreboard || 'none'}${keepAlive ? ', noExpiry=true' : ''})`);
+	eventSource = new EventSource(`/api/client-stream?lang=${lang}${fopParam}${sbParam}${noExpiryParam}${clientParam}`);
 	
 	eventSource.onmessage = (event) => {
 		try {
@@ -103,17 +118,17 @@ export function connectSSE(lang = 'en', fop = null, scoreboard = currentScoreboa
 		if (eventSource.readyState === EventSource.CLOSED) {
 			eventSource = null;
 			if (subscribers.size === 0) return;
-			// Do not reconnect while hidden: a tab nobody is watching should stay
-			// disconnected (e.g. after the server reaped its idle stream) until the
-			// user brings it back to the foreground.
-			if (isHidden()) {
+			// Do not reconnect while hidden unless noExpiry is active: a tab nobody is
+			// watching should stay disconnected (e.g. after the server reaped its idle
+			// stream) until the user brings it back to the foreground.
+			if (isHidden() && !currentNoExpiry) {
 				reconnectWhenVisible = true;
 				return;
 			}
 			if (!reconnectTimer) {
 				reconnectTimer = setTimeout(() => {
 					reconnectTimer = null;
-					connectSSE(language, currentFop);
+					connectSSE(language, currentFop, currentScoreboard, currentNoExpiry);
 				}, reconnectDelayMs);
 			}
 		}
@@ -134,7 +149,7 @@ export function subscribeSSE(callback) {
 	
 	// Ensure connection is open
 	if (!eventSource || eventSource.readyState !== EventSource.OPEN) {
-		connectSSE(language, currentFop);
+		connectSSE(language, currentFop, currentScoreboard, currentNoExpiry);
 	}
 	
 	// Return unsubscribe function

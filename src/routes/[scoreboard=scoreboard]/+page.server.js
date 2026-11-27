@@ -63,7 +63,7 @@ export async function load({ params, url }) {
 		const options = buildOptions({
 			scoreboard,
 			url,
-			reservedKeys: new Set(['fop']),
+			reservedKeys: new Set(['fop', 'noExpiry']),
 			registry: scoreboardRegistry
 		});
 

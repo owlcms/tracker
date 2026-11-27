@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
 	import { translations } from '$lib/stores.js';
-	import { subscribeSSE, connectSSE, getClientId, pauseSSEUntilVisible } from '$lib/sse-client.js';
+	import { subscribeSSE, connectSSE, getClientId, pauseSSEUntilVisible, isNoExpiryEnabled } from '$lib/sse-client.js';
 	import { onMount, onDestroy } from 'svelte';
 	
 	// Pre-import all page*.svelte files using glob (supports nested plugins and additional pages)
@@ -31,6 +31,7 @@
 	
 	// Get language preference from URL parameter or config default or fallback to 'en'
 	$: language = $page.url.searchParams.get('lang') || $page.url.searchParams.get('language') || data.config?.options?.find(o => o.key === 'language')?.default || 'en';
+	$: noExpiry = isNoExpiryEnabled($page.url.searchParams);
 	
 	function buildApiUrl() {
 		const params = new URLSearchParams({ type: data.scoreboardType, lang: language });
@@ -89,6 +90,7 @@
 	let hiddenGraceTimer = null;
 
 	function shouldQuery() {
+		if (noExpiry) return true;
 		if (typeof document === 'undefined') return true;
 		if (document.visibilityState === 'visible') return true;
 		// Hidden: keep querying only during the grace window.
@@ -155,6 +157,7 @@
 	}
 
 	function onVisibilityChange() {
+		if (noExpiry) return;
 		if (document.visibilityState === 'hidden') {
 			if (hiddenSince === null) hiddenSince = Date.now();
 			console.log(`[Scoreboard] Tab hidden; starting grace timer (clientId=${getClientId()}, graceMs=${HIDDEN_GRACE_MS})`);
@@ -186,7 +189,7 @@
 		fetchData();
 
 		// Track tab visibility to drive the hidden-tab grace period.
-		if (browser) {
+		if (browser && !noExpiry) {
 			document.addEventListener('visibilitychange', onVisibilityChange);
 			if (document.visibilityState === 'hidden') {
 				onVisibilityChange();
@@ -197,7 +200,7 @@
 		if (browser && !skipRouteSSE) {
 			// Pass fopName so SSE broker only sends events for this FOP (+ global events)
 			// Pass scoreboardType so the server can count watchers per scoreboard.
-			connectSSE(language, data.fopName, data.scoreboardType);
+			connectSSE(language, data.fopName, data.scoreboardType, noExpiry);
 			unsubscribeSSE = subscribeSSE((message) => {
 				// Per-message tracking silenced to reduce log noise during load tests.
 				// console.log('[Scoreboard] SSE received:', message.type, message.fop || '', JSON.stringify(message.timer || message.decision || {}).substring(0, 100));
@@ -272,9 +275,9 @@
 		}
 	});
 	
-	// Reconnect SSE if language changes (browser only)
+	// Reconnect SSE if language or noExpiry changes (browser only)
 	$: if (browser && language && !skipRouteSSE) {
-		connectSSE(language, data.fopName, data.scoreboardType);
+		connectSSE(language, data.fopName, data.scoreboardType, noExpiry);
 	}
 </script>
 
