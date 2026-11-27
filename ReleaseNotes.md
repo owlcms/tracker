@@ -1,7 +1,7 @@
 # OWLCMS Tracker Release Notes
 <!-- markdownlint-disable -->
 
-> #### ⚠ It is recommended to update OWLCMS to the latest stable version when updating Tracker.
+> #### ⚠ This version is meant for version 68.0; version 69 requires Tracker 3
 
 ## 2.22
 

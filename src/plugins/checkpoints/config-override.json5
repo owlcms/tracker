@@ -1,0 +1,25 @@
+// Checkpoints settings, written by the plugin page. JSON5.
+{
+  "options": [
+    {
+      "key": "owlcmsUrl",
+      "default": "http://owlcms.local:8080"
+    },
+    {
+      "key": "secret",
+      "default": "enc:v1:ab9f7210:WPby97C9uUyVZGBh9wnGmLEzdkk2qIRKK8fya3MPQpc="
+    },
+    {
+      "key": "folder",
+      "default": "/Users/jflamy/checkpoints"
+    },
+    {
+      "key": "intervalMinutes",
+      "default": 5
+    },
+    {
+      "key": "started",
+      "default": false
+    }
+  ]
+}
