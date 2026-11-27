@@ -178,6 +178,7 @@ class SSEBroker {
       clientId,
       fopName,
       scoreboardType,
+      noExpiry: options?.noExpiry === true,
       types: typeSet,
       lastSeen: clientId ? Date.now() : null,
       close
@@ -214,7 +215,7 @@ class SSEBroker {
 
     const now = Date.now();
     for (const client of Array.from(this.clients)) {
-      if (!client.clientId || !client.lastSeen) continue;
+      if (client.noExpiry || !client.clientId || !client.lastSeen) continue;
 
       const idleMs = now - client.lastSeen;
       if (idleMs < SCOREBOARD_CLIENT_IDLE_MS) continue;
