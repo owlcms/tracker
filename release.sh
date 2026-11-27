@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-REVISION="${1:-2.22.5}"
+REVISION="${1:-2.22.6}"
 set -euo pipefail
 
 # TEMPORARY (Node.js CVE, Oct 2026): .github/workflows/release.yaml sets `pull: true`
