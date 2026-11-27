@@ -9,6 +9,7 @@
 - 3.1.0: New options `showKgLeader` (kg to take the lead) and `showKgDelta` (kg to move up one rank), both on by default (OWLCMS 69.1).
 - 3.1.0: The rankings scoreboard orders score-medal categories by medal rank.
 - 3.1.0: With OWLCMS 69.1, the snatch and clean & jerk rank columns are hidden when no displayed championship awards lift medals.
+- 3.1.0: Scoreboard URLs accept a hidden `noExpiry=true` parameter (for vMix, OBS, or kiosk displays) that disables the inactivity overlay, hidden-tab SSE pause, and server-side idle reaping.
 
 ## 3.0
 - 3.0.0: **Requires OWLCMS 69.** The tracker now uses tracker-core 2.0, which only accepts protocol 69.0.0 or later. OWLCMS 66, 67 and 68 send protocol 64.0.0: the tracker shows a "Protocol Version Mismatch" message on its home page and ignores their data. Update OWLCMS and the tracker together.
